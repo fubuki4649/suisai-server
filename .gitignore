@@ -16,7 +16,8 @@ Cargo.lock
 # Ignore IDE folders
 **/.idea
 
+# Ignore .env file since it contains secrets
+.env
 
 # Added by cargo
-
 /target
