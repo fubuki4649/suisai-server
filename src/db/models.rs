@@ -1,6 +1,6 @@
 // models.rs
 use diesel::prelude::*;
-use crate::schema::{photos, albums, album_photos};
+use crate::db::schema::{photos, albums, album_photos};
 use chrono::NaiveDateTime;
 
 
