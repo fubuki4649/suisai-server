@@ -31,7 +31,7 @@ diesel::table! {
         focal_length -> Int4,
         iso -> Int4,
         shutter_speed -> Text,
-        aperture -> Numeric,
+        aperture -> Float4,
     }
 }
 
