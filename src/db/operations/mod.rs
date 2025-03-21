@@ -1,3 +1,3 @@
-mod photo;
-mod album;
-mod album_photo_join;
+pub mod photo;
+pub mod album;
+pub mod album_photo_join;
