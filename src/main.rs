@@ -5,10 +5,18 @@ use dotenvy::dotenv;
 use crate::db::models::Album;
 use crate::db::operations::album::create_album;
 
-mod db;
+#[macro_use]
+extern crate lazy_static;
 
+mod db;
+mod endpoints;
 
 type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+
+
+lazy_static! {
+    static ref DB_POOL: Pool = establish_connection_pool();
+}
 
 // Function to establish database connection pool
 fn establish_connection_pool() -> Pool {
