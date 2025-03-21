@@ -7,5 +7,7 @@ edition = "2021"
 diesel = { version = "2.2.8", features = ["postgres", "r2d2", "chrono"] }
 dotenvy = "0.15.7"
 r2d2 = "0.8.10"
-serde = "1.0.219"
 chrono = { version = "0.4.40", features = ["serde"] }
+rocket = { version = "0.5.1", features = ["json"] }
+lazy_static = "1.5.0"
+anyhow = "1.0.97"
