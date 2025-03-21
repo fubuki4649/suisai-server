@@ -8,9 +8,7 @@ CREATE TABLE photos (
     photo_date TIMESTAMP NOT NULL,
     photo_timezone TEXT NOT NULL,
     resolution INTEGER[] NOT NULL CHECK (
-        array_length(resolution, 1) = 2 AND
-        resolution[1] IS NOT NULL AND
-        resolution[2] IS NOT NULL
+        array_length(resolution, 1) = 2 AND array_position(resolution, NULL) IS NULL
     ),
     mime_type TEXT NOT NULL,
     camera_model TEXT NOT NULL,
