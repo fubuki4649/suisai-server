@@ -11,3 +11,4 @@ chrono = { version = "0.4.40", features = ["serde"] }
 rocket = { version = "0.5.1", features = ["json"] }
 lazy_static = "1.5.0"
 anyhow = "1.0.97"
+serde = "1.0.219"
