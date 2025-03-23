@@ -18,7 +18,8 @@ fn new_album(input: Json<Value>) -> Status {
 
         match input.get("album_name").and_then(|v| v.as_str()) {
             Some(album_name) => {
-                create_album(&mut conn,NewAlbum {album_name: album_name.to_string()})?;Ok(Status::Created)
+                create_album(&mut conn,NewAlbum {album_name: album_name.to_string()})?;
+                Ok(Status::Created)
             }
             None => return Ok(Status::NotFound),
         }
@@ -33,7 +34,7 @@ fn rename_album(id: i32, input: Json<Value>) -> Status {
         match input.get("album_name").and_then(|v| v.as_str()) {
             Some(album_name) => {
                 update_album(&mut conn,id,Album {id,album_name: album_name.to_string()})?;
-                Ok(Status::Created)
+                Ok(Status::Ok)
             }
             None => return Ok(Status::NotFound),
         }

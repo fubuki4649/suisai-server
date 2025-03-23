@@ -2,9 +2,9 @@
 use diesel::prelude::*;
 use crate::db::schema::{photos, albums, album_photos};
 use chrono::NaiveDateTime;
+use rocket::serde::{Deserialize, Serialize};
 
-
-#[derive(Queryable, Selectable, AsChangeset, Debug)]
+#[derive(Queryable, Selectable, AsChangeset, Serialize, Debug)]
 #[diesel(table_name = photos)]
 pub struct Photo {
     pub id: i64,
@@ -25,7 +25,7 @@ pub struct Photo {
     pub aperture: f32,
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = photos)]
 pub struct NewPhoto {
     pub thumbnail_url: String,
