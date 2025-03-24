@@ -1,10 +1,10 @@
 use crate::db::models::{Album, NewAlbum};
-use crate::db::operations::album::{create_album, delete_album, update_album};
+use crate::db::operations::album::{create_album, delete_album, get_all_albums, update_album};
 use crate::DB_POOL;
 use anyhow::Result;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
-use rocket::{delete, patch, post};
+use rocket::{delete, get, patch, post};
 
 #[post("/meow")]
 fn health_check() -> (Status, &'static str) {
@@ -48,5 +48,13 @@ fn del_album(id: i32) -> Status {
 
         delete_album(&mut conn, id)?;
         Ok(Status::Ok)
+    })
+}
+
+#[get("/album/all")]
+fn all_albums() -> Result<Json<Vec<Album>>, Status> {
+    crate::err_to_result_500!({
+        let mut conn = DB_POOL.get()?;
+        Ok(Json(get_all_albums(&mut conn)?))
     })
 }
