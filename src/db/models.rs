@@ -45,14 +45,14 @@ pub struct NewPhoto {
     pub aperture: f32,
 }
 
-#[derive(Queryable, Selectable, AsChangeset, Debug)]
+#[derive(Queryable, Selectable, AsChangeset, Serialize, Debug)]
 #[diesel(table_name = albums)]
 pub struct Album {
     pub id: i32,
     pub album_name: String,
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = albums)]
 pub struct NewAlbum {
     pub album_name: String,
