@@ -1,4 +1,4 @@
-use crate::db::models::{NewPhoto, Photo};
+use crate::db::models::photo::*;
 use crate::db::schema::photos::dsl::photos;
 use diesel::insert_into;
 use diesel::prelude::*;

@@ -1,4 +1,4 @@
-use crate::db::models::{Album, NewAlbum};
+use crate::db::models::album::*;
 use crate::db::schema::albums::dsl::albums;
 use diesel::insert_into;
 use diesel::prelude::*;

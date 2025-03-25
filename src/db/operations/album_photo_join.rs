@@ -1,7 +1,8 @@
 use diesel::insert_into;
 use diesel::prelude::*;
 use diesel::result::Error;
-use crate::db::models::{Album, AlbumPhoto, Photo};
+use crate::db::models::album::*;
+use crate::db::models::photo::*;
 use crate::db::schema::{album_photos, photos, albums};
 
 pub fn add_photo_to_album(conn: &mut PgConnection, album_id: i32, photo_id: i64) -> Result<AlbumPhoto, Error> {

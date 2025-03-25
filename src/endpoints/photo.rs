@@ -1,9 +1,10 @@
 use rocket::http::Status;
 use rocket::{delete, get, post};
 use rocket::serde::json::Json;
-use crate::db::models::{NewPhoto, Photo};
+use crate::db::models::photo::*;
 use crate::db::operations::photo::{create_photo, delete_photo, get_photo};
 use crate::DB_POOL;
+
 
 #[post("/photo/new", format = "json", data = "<input>")]
 fn new_photo(input: Json<NewPhoto>) -> Status {
