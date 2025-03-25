@@ -3,9 +3,26 @@ use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
 
 
-#[derive(Queryable, Selectable, AsChangeset, Serialize, Debug)]
-#[diesel(table_name = albums)]
+#[derive(Serialize, Debug)]
 pub struct Album {
+    pub id: i32,
+    pub album_name: String,
+    pub photos: Vec<i64>
+}
+
+impl Album {
+    pub fn from_db_album(db_album: &DBAlbum) -> Self {
+        Album {
+            id: db_album.id,
+            album_name: db_album.album_name.clone(),
+            photos: vec![],
+        }
+    }
+}
+
+#[derive(Queryable, Selectable, AsChangeset, Debug)]
+#[diesel(table_name = albums)]
+pub struct DBAlbum {
     pub id: i32,
     pub album_name: String,
 }

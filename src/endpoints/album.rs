@@ -5,7 +5,7 @@ use anyhow::Result;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
-
+use crate::db::operations::album_photo_join::get_photos_in_album;
 
 #[post("/meow")]
 fn health_check() -> (Status, &'static str) {
@@ -19,7 +19,7 @@ fn new_album(input: Json<Value>) -> Status {
 
         match input.get("album_name").and_then(|v| v.as_str()) {
             Some(album_name) => {
-                create_album(&mut conn,NewAlbum {album_name: album_name.to_string()})?;
+                create_album(&mut conn, NewAlbum {album_name: album_name.to_string()})?;
                 Ok(Status::Created)
             }
             None => return Ok(Status::NotFound),
@@ -34,7 +34,7 @@ fn rename_album(id: i32, input: Json<Value>) -> Status {
 
         match input.get("album_name").and_then(|v| v.as_str()) {
             Some(album_name) => {
-                update_album(&mut conn,id,Album {id,album_name: album_name.to_string()})?;
+                update_album(&mut conn, id, DBAlbum {id, album_name: album_name.to_string()})?;
                 Ok(Status::Ok)
             }
             None => return Ok(Status::NotFound),
@@ -56,6 +56,17 @@ fn del_album(id: i32) -> Status {
 fn all_albums() -> Result<Json<Vec<Album>>, Status> {
     crate::err_to_result_500!({
         let mut conn = DB_POOL.get()?;
-        Ok(Json(get_all_albums(&mut conn)?))
+        
+        let db_albums = get_all_albums(&mut conn)?;
+        let mut albums: Vec<Album> = Vec::with_capacity(db_albums.len());
+        
+        for db_album in db_albums.into_iter() {
+            let mut album = Album::from_db_album(&db_album);
+            album.photos = get_photos_in_album(&mut conn, album.id)?;
+            
+            albums.push(album);
+        }
+        
+        Ok(Json(albums))
     })
 }
