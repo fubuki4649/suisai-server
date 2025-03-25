@@ -26,19 +26,19 @@ pub fn remove_photo_from_album(conn: &mut PgConnection, album_id: i32, photo_id:
         .execute(conn)
 }
 
-pub fn get_photos_in_album(conn: &mut PgConnection, album_id: i32) -> Result<Vec<Photo>, Error> {
+pub fn get_photos_in_album(conn: &mut PgConnection, album_id: i32) -> Result<Vec<i64>, Error> {
     album_photos::table
         .filter(album_photos::album_id.eq(album_id))
         .inner_join(photos::table)
-        .select(Photo::as_select())
-        .load(conn)
+        .select(album_photos::photo_id)
+        .load::<i64>(conn)
 }
 
-pub fn get_albums_containing_photo(conn: &mut PgConnection, photo_id: i64) -> Result<Vec<Album>, Error> {
+pub fn get_albums_containing_photo(conn: &mut PgConnection, photo_id: i64) -> Result<Vec<DBAlbum>, Error> {
     album_photos::table
         .filter(album_photos::photo_id.eq(photo_id))
         .inner_join(albums::table)
-        .select(Album::as_select())
+        .select(DBAlbum::as_select())
         .load(conn)
 }
 

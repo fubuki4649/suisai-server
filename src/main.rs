@@ -45,7 +45,7 @@ fn main() {
 
 // TESTING TODO: REMOVE LATER
 
-fn create_album_example(pool: &Pool) -> Album {
+fn create_album_example(pool: &Pool) -> DBAlbum {
     let mut conn = pool.get().expect("Failed to get connection from pool");
 
     let album = NewAlbum {
