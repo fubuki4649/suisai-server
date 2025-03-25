@@ -2,7 +2,7 @@ use std::env;
 use diesel::PgConnection;
 use diesel::r2d2::ConnectionManager;
 use dotenvy::dotenv;
-use crate::db::models::Album;
+use crate::db::models::album::*;
 use crate::db::operations::album::create_album;
 
 #[macro_use]
@@ -48,7 +48,7 @@ fn main() {
 fn create_album_example(pool: &Pool) -> Album {
     let mut conn = pool.get().expect("Failed to get connection from pool");
 
-    let album = db::models::NewAlbum {
+    let album = NewAlbum {
         album_name: "Vacation 2025".to_string(),
     };
 

@@ -1,10 +1,11 @@
-use crate::db::models::{Album, NewAlbum};
+use crate::db::models::album::*;
 use crate::db::operations::album::{create_album, delete_album, get_all_albums, update_album};
 use crate::DB_POOL;
 use anyhow::Result;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
+
 
 #[post("/meow")]
 fn health_check() -> (Status, &'static str) {
