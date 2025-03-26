@@ -7,13 +7,13 @@ use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
 use crate::db::operations::album_photo_join::get_photos_in_album;
 
-#[post("/meow")]
-fn health_check() -> (Status, &'static str) {
-    (Status::ImATeapot, ">///<")
+#[get("/meow")]
+pub fn health_check() -> (Status, &'static str) {
+    (Status::ImATeapot, ">///<\n")
 }
 
 #[post("/album/new", format = "json", data = "<input>")]
-fn new_album(input: Json<Value>) -> Status {
+pub fn new_album(input: Json<Value>) -> Status {
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
 
@@ -28,7 +28,7 @@ fn new_album(input: Json<Value>) -> Status {
 }
 
 #[patch("/album/<id>/rename", format = "json", data = "<input>")]
-fn rename_album(id: i32, input: Json<Value>) -> Status {
+pub fn rename_album(id: i32, input: Json<Value>) -> Status {
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
 
@@ -43,7 +43,7 @@ fn rename_album(id: i32, input: Json<Value>) -> Status {
 }
 
 #[delete("/album/<id>/delete")]
-fn del_album(id: i32) -> Status {
+pub fn del_album(id: i32) -> Status {
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
 
@@ -53,7 +53,7 @@ fn del_album(id: i32) -> Status {
 }
 
 #[get("/album/all")]
-fn all_albums() -> Result<Json<Vec<Album>>, Status> {
+pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
     crate::err_to_result_500!({
         let mut conn = DB_POOL.get()?;
         
