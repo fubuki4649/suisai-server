@@ -7,7 +7,7 @@ use crate::DB_POOL;
 
 
 #[post("/photo/new", format = "json", data = "<input>")]
-fn new_photo(input: Json<NewPhoto>) -> Status {
+pub fn new_photo(input: Json<NewPhoto>) -> Status {
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
         create_photo(&mut conn, input.into_inner())?;
@@ -17,7 +17,7 @@ fn new_photo(input: Json<NewPhoto>) -> Status {
 }
 
 #[delete("/photo/<id>/delete")]
-fn del_photo(id: i64) -> Status {
+pub fn del_photo(id: i64) -> Status {
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
         delete_photo(&mut conn, id)?;
@@ -27,7 +27,7 @@ fn del_photo(id: i64) -> Status {
 }
 
 #[get("/photo/<id>")]
-fn get_photo_single(id: i64) -> Result<Json<Photo>, Status> {
+pub fn get_photo_single(id: i64) -> Result<Json<Photo>, Status> {
     crate::err_to_result_500!({
         let mut conn = DB_POOL.get()?;
         let photo = get_photo(&mut conn, id)?;
@@ -37,7 +37,7 @@ fn get_photo_single(id: i64) -> Result<Json<Photo>, Status> {
 }
 
 #[get("/photo/get", format = "json", data = "<ids>")]
-fn get_photo_multi(ids: Json<Vec<i64>>) -> Result<Json<Vec<Photo>>, Status> {
+pub fn get_photo_multi(ids: Json<Vec<i64>>) -> Result<Json<Vec<Photo>>, Status> {
     crate::err_to_result_500!({
         let id_vec = ids.into_inner();
         
