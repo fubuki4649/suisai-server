@@ -1,10 +1,24 @@
-use rocket::{launch, routes};
 use crate::endpoints::album::*;
 use crate::endpoints::photo::*;
+use rocket::routes;
+use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
+use std::str::FromStr;
 
 pub async fn start_server() {
 
-    rocket::build().mount("/api", routes![
+    let cors = CorsOptions {
+        allowed_origins: AllowedOrigins::all(),
+        allowed_methods: ["Get", "Post", "Put", "Patch", "Delete"]
+            .iter()
+            .map(|s| FromStr::from_str(s).unwrap())
+            .collect(),
+        allowed_headers: AllowedHeaders::all(),
+        ..Default::default()
+    }
+    .to_cors()
+    .expect("Failed to create CORS");
+
+    rocket::build().attach(cors).mount("/api", routes![
         // General
         health_check,
         
