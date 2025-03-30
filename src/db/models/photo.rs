@@ -6,7 +6,9 @@ use rocket::serde::{Deserialize, Serialize};
 
 #[derive(Queryable, Selectable, AsChangeset, Serialize, Debug)]
 #[diesel(table_name = photos)]
+#[serde(rename_all = "camelCase")]
 pub struct Photo {
+    #[serde(rename = "photoId")]
     pub id: i64,
     pub thumbnail_url: String,
     pub file_name: String,
