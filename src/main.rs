@@ -16,6 +16,7 @@ mod db;
 mod endpoints;
 mod cli;
 mod server;
+mod ingest;
 
 type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
