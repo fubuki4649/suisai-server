@@ -13,12 +13,20 @@ struct Cli {
 enum Commands {
     #[command(about = "Start the web server used by the frontend")]
     StartServer {},
+    #[command(about = "Ingest camera raws from a directory")]
+    Ingest {
+        #[arg(help = "Path to a directory containing camera raws")]
+        path: String,
+    }
 }
 
 pub async fn run_cli() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::StartServer {} => start_server()
-    }.await;
+        Commands::StartServer {} => start_server().await,
+        Commands::Ingest {path} => {
+            println!("Ingesting files from: {}", path);
+        }
+    };
 }
