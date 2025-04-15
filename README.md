@@ -53,4 +53,23 @@ Then, instlal the Diesel CLI and run migrations to create the necessary tables a
     diesel migration run
 
 
-#### Then, use cargo to run the project as normal :)
+### Creating the `.env` file
+
+Create a `.env` file with the following variables
+
+`$DATABASE_URL` - `postgres://<username>:<password>@<hostname>/<tablename>`
+
+`$FILE_DIR` - Where to store all the files (see below)
+
+
+
+## Directory Structure
+
+Subject to change
+
+```
+$FILE_DIR/
+├── thumbnails/
+├── raws/
+└── associated_files/
+```
