@@ -1,11 +1,16 @@
+use crate::_utils::run_command::ShellReturn;
+use crate::db::models::photo::NewPhoto;
+use crate::sh;
 use chrono::NaiveDateTime;
+use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
 pub trait SuisaiImage {
     /// Size on disk of the image in KB
     fn get_size_on_disk(&self) -> i32;
 
-    /// The date the photo was taken
+    /// The date/time the photo was taken, in local time
     fn get_photo_date(&self) -> NaiveDateTime;
 
     // TODO: get_photo_timezone
@@ -17,10 +22,10 @@ pub trait SuisaiImage {
     fn get_mime(&self) -> String;
 
     /// The model of the camera used to take the image
-    fn get_camera(&self) -> String;
+    fn get_camera_model(&self) -> String;
 
     /// The model of the lens used to take the image
-    fn get_lens(&self) -> String;
+    fn get_lens_model(&self) -> String;
 
     /// The shutter count of the camera when the image was taken.
     /// Might not be unique for cameras with electronic shutter.
@@ -37,50 +42,163 @@ pub trait SuisaiImage {
 
     /// The aperture setting (f-stop) used to take the photo
     fn get_aperture(&self) -> f32;
+    
+    /// Returns a `crate::db::models::NewPhoto`
+    fn to_db_entry(&self) -> NewPhoto;
 }
 
 impl SuisaiImage for PathBuf {
     fn get_size_on_disk(&self) -> i32 {
-        todo!()
+        let metadata = fs::metadata(self);
+        (match metadata {
+            Ok(metadata) => metadata.len().div_ceil(1024),
+            Err(_) => 0,
+        }) as i32
     }
-
+    
     fn get_photo_date(&self) -> NaiveDateTime {
-        todo!()
-    }
+        let result: ShellReturn = sh!("exiftool -DateTimeOriginal -fast2 -s3 {}", self.to_string_lossy());
 
+        if result.err_code == 0 {
+            if let Ok(ndt) = NaiveDateTime::parse_from_str(result.stdout.trim(), "%Y:%m:%d %H:%M:%S") {
+                return ndt;
+            }
+        }
+
+        NaiveDateTime::from_timestamp(0, 0)
+    }
+    
     fn get_resolution(&self) -> Vec<i32> {
-        todo!()
+        let result = sh!("exiftool -fast2 -s3 -ImageWidth -ImageHeight {}", self.to_string_lossy());
+        
+        if result.err_code == 0 {
+            let lines: Vec<&str> = result.stdout.lines().collect();
+            if lines.len() >= 2 {
+                return vec![
+                    lines[0].trim().parse::<i32>().unwrap_or(0),
+                    lines[1].trim().parse::<i32>().unwrap_or(0),
+                ];
+            }
+        }
+
+        vec![0,0]
     }
 
     fn get_mime(&self) -> String {
-        todo!()
+        let result = sh!("exiftool -s3 -fast2 -MIMEType {}", self.to_string_lossy());
+
+        match result.err_code {
+            0 => result.stdout.trim().to_string(),
+            _ => "application/octet-stream".to_string(),
+        }
     }
 
-    fn get_camera(&self) -> String {
-        todo!()
-    }
+    fn get_camera_model(&self) -> String {
+        let result = sh!("exiftool -s3 -fast2 -Model {}", self.to_string_lossy());
 
-    fn get_lens(&self) -> String {
-        todo!()
+        match result.err_code {
+            0 => result.stdout.trim().to_string(),
+            _ => "Unknown Camera".to_string(),
+        }
+    }
+    
+    fn get_lens_model(&self) -> String {
+        let result = sh!("exiftool -s3 -fast2 -LensModel {}", self.to_string_lossy());
+
+        // Try `-LensModel` first
+        if result.err_code != 0 {
+            let lens_model = result.stdout.trim().to_string();
+            if !lens_model.is_empty() {
+                return lens_model;
+            }
+        }
+
+        // Try `-Lens` if `-LensModel` returns nothing
+        let result = sh!("exiftool -s3 -fast2 -Lens {}", self.to_string_lossy());
+        match result.err_code {
+            0 => result.stdout.trim().to_string(),
+            _ => "Unknown Lens".to_string(),
+        }
     }
 
     fn get_shutter_count(&self) -> i32 {
-        todo!()
+        let tags = ["ImageCount", "ShutterCount", "Canon:ShutterCount"];
+
+        // Try a bunch of tags, because metadata may be inconsistent across various camera brands
+        for tag in tags {
+            let result = sh!("exiftool -s3 -fast1 -{} {}", tag, self.to_string_lossy());
+
+            if result.err_code == 0 {
+                if let Ok(count) = result.stdout.trim().parse::<i32>() {
+                    if count != 0 {
+                        return count;
+                    }
+                }
+            }
+        }
+        
+        0
     }
 
     fn get_focal_length(&self) -> i32 {
-        todo!()
+        let result = sh!("exiftool -s3 -fast2 -FocalLength {}", self.to_string_lossy());
+
+        match result.err_code {
+            0 => {
+                // result.stdout might look like "50.0 mm"
+                let trimmed = result.stdout.split_whitespace().next().unwrap_or("0");
+                trimmed.parse::<f32>().unwrap_or(0.0).round() as i32
+            }
+            _ => 0,
+        }
     }
+
 
     fn get_iso(&self) -> i32 {
-        todo!()
+        let result = sh!("exiftool -s3 -fast2 -ISO {}", self.to_string_lossy());
+
+        match result.err_code {
+            0 => result.stdout.split_whitespace().next().unwrap_or("0").parse::<i32>().unwrap_or(0),
+            _ => 0,
+        }
     }
 
+
     fn get_shutter_speed(&self) -> String {
-        todo!()
+        let result = sh!("exiftool -s3 -fast2 -ShutterSpeed {}", self.to_string_lossy());
+
+        match result.err_code {
+            0 => result.stdout.trim().to_string(),
+            _ => "Unknown".to_string(),
+        }
     }
 
     fn get_aperture(&self) -> f32 {
-        todo!()
+        let result = sh!("exiftool -s3 -fast2 -Aperture {}", self.to_string_lossy());
+
+        match result.err_code {
+            0 => result.stdout.split_whitespace().next().unwrap_or("0").parse::<f32>().unwrap_or(0.0),
+            _ => 0.0,
+        }
+    }
+
+    fn to_db_entry(&self) -> NewPhoto {
+        NewPhoto {
+            thumbnail_url: "".to_string(), // TODO not available yet
+            file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            file_path: self.to_string_lossy().to_string(),
+            size_on_disk: self.get_size_on_disk().to_string(),
+            photo_date: self.get_photo_date(),
+            photo_timezone: "".to_string(), // TODO not available yet
+            resolution: self.get_resolution().into_iter().map(Some).collect(),
+            mime_type: self.get_mime(),
+            camera_model: self.get_camera_model(),
+            lens_model: self.get_lens_model(),
+            shutter_count: self.get_shutter_count(),
+            focal_length: self.get_focal_length(),
+            iso: self.get_iso(),
+            shutter_speed: self.get_shutter_speed(),
+            aperture: self.get_aperture(),
+        }
     }
 }
