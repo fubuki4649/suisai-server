@@ -1,3 +1,3 @@
-mod get_img_paths;
-mod get_metadata;
-mod trait_suisai_image;
+pub mod get_img_paths;
+pub mod get_metadata;
+pub mod trait_suisai_image;

@@ -27,7 +27,7 @@ pub struct Photo {
     pub aperture: f32,
 }
 
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Deserialize, Serialize, Debug)]
 #[diesel(table_name = photos)]
 pub struct NewPhoto {
     pub thumbnail_url: String,
