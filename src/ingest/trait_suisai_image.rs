@@ -5,7 +5,6 @@ use chrono::NaiveDateTime;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use clap::builder::Str;
 
 pub trait SuisaiImage {
     /// Size on disk of the image in KB
@@ -45,7 +44,7 @@ pub trait SuisaiImage {
     /// The aperture setting (f-stop) used to take the photo
     fn get_aperture(&self) -> f32;
 
-    /// Returns a `crate::db::models::NewPhoto`
+    /// Returns a `crate::db::models::NewPhoto`. Does not populate the `thumbnail` field
     fn to_db_entry(&self) -> NewPhoto;
 }
 
@@ -203,7 +202,7 @@ impl SuisaiImage for PathBuf {
 
     fn to_db_entry(&self) -> NewPhoto {
         NewPhoto {
-            thumbnail_url: "".to_string(), // TODO not available yet
+            thumbnail_url: "".to_string(),
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
             file_path: self.to_string_lossy().to_string(),
             size_on_disk: self.get_size_on_disk().to_string(),
