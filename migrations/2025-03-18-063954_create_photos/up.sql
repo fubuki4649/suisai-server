@@ -6,15 +6,15 @@ CREATE TABLE photos (
     file_path TEXT NOT NULL,
     size_on_disk TEXT NOT NULL,
     photo_date TIMESTAMP NOT NULL,
-    photo_timezone TEXT NOT NULL,
-    resolution INTEGER[] NOT NULL CHECK (
+    photo_timezone VARCHAR(6) NOT NULL,
+    resolution SMALLINT[] NOT NULL CHECK (
         array_length(resolution, 1) = 2 AND array_position(resolution, NULL) IS NULL
     ),
     mime_type TEXT NOT NULL,
     camera_model TEXT NOT NULL,
     lens_model TEXT NOT NULL,
     shutter_count INTEGER NOT NULL,
-    focal_length INTEGER NOT NULL,
+    focal_length SMALLINT NOT NULL,
     iso INTEGER NOT NULL,
     shutter_speed TEXT NOT NULL,
     aperture REAL NOT NULL
