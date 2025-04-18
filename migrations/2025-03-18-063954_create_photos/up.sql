@@ -1,6 +1,7 @@
 -- Your SQL goes here
 CREATE TABLE photos (
     id BIGSERIAL PRIMARY KEY,
+    hash VARCHAR(32) NOT NULL,
     thumbnail_url TEXT NOT NULL,
     file_name TEXT NOT NULL,
     file_path TEXT NOT NULL,
@@ -20,4 +21,6 @@ CREATE TABLE photos (
     aperture REAL NOT NULL
 );
 
+CREATE UNIQUE INDEX idx_photos_file_path_lower_unique ON photos(LOWER(file_path));
+CREATE UNIQUE INDEX idx_photos_hash_unique ON photos(hash);
 CREATE INDEX idx_photos_photo_date ON photos(photo_date);

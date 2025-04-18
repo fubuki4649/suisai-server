@@ -17,6 +17,8 @@ diesel::table! {
 diesel::table! {
     photos (id) {
         id -> Int8,
+        #[max_length = 32]
+        hash -> Varchar,
         thumbnail_url -> Text,
         file_name -> Text,
         file_path -> Text,

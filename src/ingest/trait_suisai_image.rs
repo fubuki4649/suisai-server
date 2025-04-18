@@ -3,10 +3,16 @@ use crate::db::models::photo::NewPhoto;
 use crate::sh;
 use chrono::NaiveDateTime;
 use std::fs;
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::Command;
+use xxhash_rust::xxh3::xxh3_128;
 
 pub trait SuisaiImage {
+
+    /// Gets the xxh3_128 hash of the image
+    fn get_hash(&self) -> String;
+
     /// Size on disk of the image in KB
     fn get_size_on_disk(&self) -> i32;
 
@@ -49,6 +55,12 @@ pub trait SuisaiImage {
 }
 
 impl SuisaiImage for PathBuf {
+    fn get_hash(&self) -> String {
+        let data = fs::read(self).unwrap_or_default();
+        let hash = xxh3_128(&data);
+        format!("{:032x}", hash)
+    }
+
     fn get_size_on_disk(&self) -> i32 {
         let metadata = fs::metadata(self);
         (match metadata {
@@ -142,7 +154,7 @@ impl SuisaiImage for PathBuf {
     fn get_shutter_count(&self) -> i32 {
         let tags = ["ImageCount", "ShutterCount", "Canon:ShutterCount"];
 
-        // Try a bunch of tags, because metadata may be inconsistent across various camera brands
+        // Try a bunch of tags because metadata may be inconsistent across various camera brands
         for tag in tags {
             let result = sh!("exiftool -s3 -fast1 -{} {}", tag, self.to_string_lossy());
 
@@ -203,6 +215,7 @@ impl SuisaiImage for PathBuf {
     fn to_db_entry(&self) -> NewPhoto {
         NewPhoto {
             thumbnail_url: "".to_string(),
+            hash: self.get_hash(),
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
             file_path: self.to_string_lossy().to_string(),
             size_on_disk: self.get_size_on_disk().to_string(),

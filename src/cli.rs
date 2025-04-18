@@ -5,6 +5,7 @@ use crate::server::start_server;
 use clap::{Parser, Subcommand};
 use rocket::serde::json::serde_json;
 use std::path::Path;
+use rocket::outcome::IntoOutcome;
 use crate::DB_POOL;
 
 #[derive(Parser)]
@@ -49,8 +50,10 @@ pub async fn run_cli() {
                 if !dry {
                     let mut conn = DB_POOL.get().expect("Failed to get connection from pool");
                     println!("Adding {} to database", photo.file_path);
-                    create_photo(&mut conn, photo).unwrap();
-                    println!("Success");
+                    match create_photo(&mut conn, photo) {
+                        Err(e) => println!("Error: {}", e),
+                        _ => println!("Success")
+                    };
                 }
             }
         }
