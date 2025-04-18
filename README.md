@@ -47,7 +47,7 @@ Create the env file—this will allow Diesel to connect to Postgres
 
     echo DATABASE_URL=postgres://yourusername:yourpassword@localhost/yourdb > .env
 
-Then, instlal the Diesel CLI and run migrations to create the necessary tables and columns
+Then, install the Diesel CLI and run migrations to create the necessary tables and columns
 
     cargo install diesel_cli --no-default-features --features postgres
     diesel migration run
