@@ -11,6 +11,18 @@ pub fn create_photo(conn: &mut PgConnection, new_photo: NewPhoto) -> Result<Phot
         .get_result(conn)
 }
 
+pub fn check_hash(conn: &mut PgConnection, hash: &str) -> Result<Option<Photo>, Error> {
+    photos
+        .filter(crate::db::schema::photos::dsl::hash.eq(hash))
+        .select(Photo::as_select())
+        .first(conn)
+        .map(Some)
+        .or_else(|e| match e {
+            Error::NotFound => Ok(None),
+            err => Err(err),
+        })
+}
+
 pub fn get_photo(conn: &mut PgConnection, photo_id: i64) -> Result<Photo, Error> {
     photos
         .find(photo_id)
