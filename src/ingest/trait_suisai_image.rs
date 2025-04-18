@@ -3,7 +3,6 @@ use crate::db::models::photo::NewPhoto;
 use crate::sh;
 use chrono::NaiveDateTime;
 use std::fs;
-use std::io::Read;
 use std::path::PathBuf;
 use std::process::Command;
 use xxhash_rust::xxh3::xxh3_128;
