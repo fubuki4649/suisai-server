@@ -43,7 +43,7 @@ Use `\l` and `\du` to verify that the table and user have been created respectiv
 
 ### Setting up Database
 
-Create the env file - this will allow Diesel to connect to Postgres
+Create the env file—this will allow Diesel to connect to Postgres
 
     echo DATABASE_URL=postgres://yourusername:yourpassword@localhost/yourdb > .env
 
@@ -59,16 +59,15 @@ Create a `.env` file with the following variables
 
 `$DATABASE_URL` - `postgres://<username>:<password>@<hostname>/<tablename>`
 
-`$FILE_DIR` - Where to store all the files (see below)
-
+`$STORAGE_ROOT` - Specifies where to store all data (see below)
 
 
 ## Directory Structure
 
-Subject to change
+The default storage structure for `Suisai`. Symlinks may be used to relocate subdirectories to another location, volume, etc.
 
 ```
-$FILE_DIR/
+$STORAGE_ROOT/
 ├── thumbnails/
 ├── raws/
 └── associated_files/

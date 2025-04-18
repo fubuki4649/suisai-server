@@ -3,8 +3,12 @@ use crate::endpoints::photo::*;
 use rocket::routes;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::str::FromStr;
+use crate::preflight::check_directories;
 
 pub async fn start_server() {
+
+    // Run preflight checks
+    check_directories().unwrap();
 
     let cors = CorsOptions {
         allowed_origins: AllowedOrigins::all(),
