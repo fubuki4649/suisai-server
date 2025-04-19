@@ -135,7 +135,7 @@ impl SuisaiImage for PathBuf {
         let result = sh!("exiftool -s3 -fast2 -LensModel {}", self.to_string_lossy());
 
         // Try `-LensModel` first
-        if result.err_code != 0 {
+        if result.err_code == 0 {
             let lens_model = result.stdout.trim().to_string();
             if !lens_model.is_empty() {
                 return lens_model;
