@@ -8,6 +8,12 @@ Backend server for suisai
 
 </div>
 
+## Dependencies
+
+- `exiftool` - for extracting exif data
+- `dcraw` - for reading raw files (thumbnail generation)
+- `cjpeg` - for encoding to jpeg (thumbnail generation)
+
 ## Setup
 
 ### Creating the Database
@@ -68,7 +74,7 @@ The default storage structure for `Suisai`. Symlinks may be used to relocate sub
 
 ```
 $STORAGE_ROOT/
-├── thumbnails/
+├── thumbs/
 ├── raws/
 └── associated_files/
 ```

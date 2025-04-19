@@ -5,10 +5,10 @@ use std::path::Path;
 pub fn check_directories() -> Result<(), anyhow::Error> {
     let storage_root = env::var("STORAGE_ROOT").map_err(|_| anyhow::anyhow!("$STORAGE_ROOT not set"))?;
 
-    // Check if `$STORAGE_ROOT`, `$STORAGE_ROOT/thumbnails` and `$STORAGE_ROOT/raws`, 
+    // Check if `$STORAGE_ROOT`, `$STORAGE_ROOT/thumbs` and `$STORAGE_ROOT/raws`, 
     // and `$STORAGE_ROOT/associated_files` exist as directories.
     let paths = vec![
-        format!("{}/thumbnails", storage_root),
+        format!("{}/thumbs", storage_root),
         format!("{}/raws", storage_root),
         format!("{}/associated_files", storage_root),
     ];

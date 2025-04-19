@@ -5,6 +5,7 @@ use chrono::Datelike;
 use rocket::serde::json::serde_json;
 use crate::db::operations::photo::{check_hash, create_photo};
 use crate::DB_POOL;
+use crate::ingest::extract_thumbnail::extract_thumbnail_full;
 use crate::ingest::get_images::get_images;
 use crate::ingest::trait_suisai_image::SuisaiImage;
 
@@ -37,26 +38,25 @@ pub fn ingest(path: String, dry: bool, preserve: bool) {
             continue;
         }
 
-        // Relocate photo to `$STORAGE_ROOT/raws`
-        // Create/verify destination directory exists
+        // Create/verify destination directory (`$STORAGE_ROOT/raws/yyyymm`) exists
         let date = path.get_photo_date();
         let dest_directory = raw_storage_path.join(format!("{}{:02}", date.year(), date.month()));
         create_dir_all(&dest_directory).unwrap_or_else(|_| panic!("Failed to create directory {}", dest_directory.to_str().unwrap()));
 
-        // Copy/Move photo as appropriate
+        // Relocate photo to `$STORAGE_ROOT/raws/yyyymm`
         let filename = path.file_name().unwrap_or_default().to_string_lossy();
         let new_path = dest_directory.join(filename.to_string());
         match preserve {
+            // Copy if the preserve flag is set
             true => {
-                // Copy
                 let copy_result = copy(&path, &new_path);
                 match copy_result {
                     Err(e) => println!("Error copying {} to {}: {}", filename, dest_directory.to_str().unwrap(), e),
                     Ok(bytes) => println!("Copied {} to {} ({} bytes)", filename, dest_directory.to_str().unwrap(), bytes)
                 }
             },
+            // Move, otherwise
             false => {
-                // Move
                 let move_result = rename(&path, &new_path);
                 match move_result {
                     Err(e) => println!("Error moving {} to {}: {}", filename, dest_directory.to_str().unwrap(), e),
@@ -64,9 +64,22 @@ pub fn ingest(path: String, dry: bool, preserve: bool) {
                 }
             }
         }
-
-        // Convert to DB entry
-        let photo = new_path.to_db_entry();
+        
+        // Render a thumbnail to `$STORAGE_ROOT/thumbs/yyyymm` with the same filename as the raw
+        let thumbnail_dir = format!("{}/thumbs/{}{:02}/", env::var("STORAGE_ROOT").unwrap(), date.year(), date.month());
+        let thumbnail_filename = format!("{}.jpeg", path.file_stem().unwrap().to_string_lossy());
+        let mut thumbnail_path = format!("{}{}", thumbnail_dir, thumbnail_filename);
+        match extract_thumbnail_full(new_path.to_str().unwrap(), &thumbnail_dir, &thumbnail_filename) {
+            Ok(_) => println!("Thumbnail created at {}", thumbnail_path),
+            Err(e) => {
+                thumbnail_path = String::new();
+                println!("Error creating thumbnail for {}: {}", filename, e)
+            }       
+        }
+        
+        // Convert path to DB entry
+        let mut photo = new_path.to_db_entry();
+        photo.thumbnail_url = thumbnail_path;
         println!("{}", serde_json::to_string_pretty(&photo).unwrap());
 
         // Add to DB
@@ -78,8 +91,4 @@ pub fn ingest(path: String, dry: bool, preserve: bool) {
     }
     
     println!("Done");
-}
-
-fn relocate_image(path: String) {
-    
 }
