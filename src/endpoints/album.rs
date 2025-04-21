@@ -1,11 +1,13 @@
+use crate::_utils::json_map::JsonMap;
 use crate::db::models::album::*;
 use crate::db::operations::album::{create_album, delete_album, get_all_albums, update_album};
-use crate::DB_POOL;
+use crate::db::operations::album_photo_join::get_photos_in_album;
+use crate::{unwrap_or_return, DB_POOL};
 use anyhow::Result;
+use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
-use crate::db::operations::album_photo_join::get_photos_in_album;
 
 #[get("/meow")]
 pub fn health_check() -> (Status, &'static str) {
@@ -14,30 +16,27 @@ pub fn health_check() -> (Status, &'static str) {
 
 #[post("/album/new", format = "json", data = "<input>")]
 pub fn new_album(input: Json<Value>) -> Status {
+    let album_name = unwrap_or_return!(input.get_value::<String>("album_name"), Status::BadRequest);
+    
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
-
-        match input.get("album_name").and_then(|v| v.as_str()) {
-            Some(album_name) => {
-                create_album(&mut conn, NewAlbum {album_name: album_name.to_string()})?;
-                Ok(Status::Created)
-            }
-            None => return Ok(Status::NotFound),
-        }
+        
+        create_album(&mut conn, NewAlbum {album_name: album_name.to_string()})?;
+        Ok(Status::Created)
     })
 }
 
 #[patch("/album/<id>/rename", format = "json", data = "<input>")]
 pub fn rename_album(id: i32, input: Json<Value>) -> Status {
+    let album_name = unwrap_or_return!(input.get_value::<String>("album_name"), Status::BadRequest);
+
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
 
-        match input.get("album_name").and_then(|v| v.as_str()) {
-            Some(album_name) => {
-                update_album(&mut conn, id, DBAlbum {id, album_name: album_name.to_string()})?;
-                Ok(Status::Ok)
-            }
-            None => return Ok(Status::NotFound),
+        match update_album(&mut conn, id, DBAlbum {id, album_name}) {
+            Ok(_) => Ok(Status::Ok),
+            Err(Error::NotFound) => Ok(Status::NotFound),
+            Err(e) => Err(e.into()),
         }
     })
 }
@@ -47,8 +46,11 @@ pub fn del_album(id: i32) -> Status {
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
 
-        delete_album(&mut conn, id)?;
-        Ok(Status::Ok)
+        match delete_album(&mut conn, id) {
+            Ok(_) => Ok(Status::Ok),
+            Err(Error::NotFound) => Ok(Status::NotFound),
+            Err(e) => Err(e.into()),
+        }
     })
 }
 
@@ -67,6 +69,6 @@ pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
             albums.push(album);
         }
         
-        Ok(Json(albums))
+        Ok(Ok(Json(albums)))
     })
 }
