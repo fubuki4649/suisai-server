@@ -4,7 +4,7 @@ use diesel::insert_into;
 use diesel::prelude::*;
 use diesel::result::Error;
 
-pub fn add_photo_to_album(conn: &mut PgConnection, album_id: i32, photo_id: i64) -> Result<AlbumPhoto, Error> {
+pub fn add_photo_to_album(conn: &mut PgConnection, photo_id: i64, album_id: i32) -> Result<AlbumPhoto, Error> {
     let album_photo = AlbumPhoto {
         album_id,
         photo_id,
@@ -16,7 +16,15 @@ pub fn add_photo_to_album(conn: &mut PgConnection, album_id: i32, photo_id: i64)
         .get_result(conn)
 }
 
-pub fn remove_photo_from_album(conn: &mut PgConnection, album_id: i32, photo_id: i64) -> Result<usize, Error> {
+pub fn remove_photo_from_all_albums(conn: &mut PgConnection, photo_id: i64) -> Result<usize, Error> {
+    diesel::delete(
+        album_photos::table
+            .filter(album_photos::photo_id.eq(photo_id))
+    )
+        .execute(conn)
+}
+
+pub fn remove_photo_from_album(conn: &mut PgConnection, photo_id: i64, album_id: i32) -> Result<usize, Error> {
     diesel::delete(
         album_photos::table
             .filter(album_photos::album_id.eq(album_id))
