@@ -1,13 +1,13 @@
-use std::env;
-use std::fs::{copy, create_dir_all, rename};
-use std::path::Path;
-use chrono::Datelike;
-use rocket::serde::json::serde_json;
 use crate::db::operations::photo::{check_hash, create_photo};
-use crate::DB_POOL;
 use crate::ingest::extract_thumbnail::extract_thumbnail_full;
 use crate::ingest::get_images::get_images;
 use crate::ingest::trait_suisai_image::SuisaiImage;
+use crate::DB_POOL;
+use chrono::Datelike;
+use rocket::serde::json::serde_json;
+use std::env;
+use std::fs::{copy, create_dir_all, rename};
+use std::path::Path;
 
 pub fn ingest(path: String, dry: bool, preserve: bool) {
     println!("Ingesting files from: {}", path);

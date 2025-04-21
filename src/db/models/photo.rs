@@ -1,6 +1,6 @@
-use diesel::prelude::*;
 use crate::db::schema::photos;
 use chrono::NaiveDateTime;
+use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
 
 

@@ -1,9 +1,9 @@
 use crate::endpoints::album::*;
 use crate::endpoints::photo::*;
+use crate::preflight::check_directories;
 use rocket::routes;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::str::FromStr;
-use crate::preflight::check_directories;
 
 pub async fn start_server() {
 

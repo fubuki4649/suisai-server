@@ -1,9 +1,10 @@
-use rocket::http::Status;
-use rocket::{delete, get, post};
-use rocket::serde::json::Json;
 use crate::db::models::photo::*;
 use crate::db::operations::photo::{create_photo, delete_photo, get_photo};
 use crate::DB_POOL;
+use diesel::result::Error;
+use rocket::http::Status;
+use rocket::serde::json::Json;
+use rocket::{delete, get, post};
 
 
 #[post("/photo/new", format = "json", data = "<input>")]
@@ -20,9 +21,12 @@ pub fn new_photo(input: Json<NewPhoto>) -> Status {
 pub fn del_photo(id: i64) -> Status {
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
-        delete_photo(&mut conn, id)?;
-        
-        Ok(Status::Ok)
+
+        match delete_photo(&mut conn, id) {
+            Ok(_) => Ok(Status::Ok),
+            Err(Error::NotFound) => Ok(Status::NotFound),
+            Err(e) => Err(e.into()),
+        }
     })
 }
 
@@ -30,9 +34,11 @@ pub fn del_photo(id: i64) -> Status {
 pub fn get_photo_single(id: i64) -> Result<Json<Photo>, Status> {
     crate::err_to_result_500!({
         let mut conn = DB_POOL.get()?;
-        let photo = get_photo(&mut conn, id)?;
-
-        Ok(Json(photo))
+        match get_photo(&mut conn, id) {
+            Ok(photo) => Ok(Ok(Json(photo))),
+            Err(Error::NotFound) => Ok(Err(Status::NotFound)),
+            Err(e) => Err(e.into()),
+        }
     })
 }
 
@@ -45,9 +51,11 @@ pub fn get_photo_multi(ids: Json<Vec<i64>>) -> Result<Json<Vec<Photo>>, Status> 
         let mut photos: Vec<Photo> = Vec::with_capacity(id_vec.len());
 
         for id in id_vec.iter() {
-            photos.push(get_photo(&mut conn, *id)?);
+            if let Ok(photo) = get_photo(&mut conn, *id) {
+                photos.push(photo);
+            }
         }
 
-        Ok(Json(photos))
+        Ok(Ok(Json(photos)))
     })
 }

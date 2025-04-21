@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate lazy_static;
 use crate::cli::run_cli;
+use crate::preflight::check_directories;
 use diesel::r2d2::ConnectionManager;
 use diesel::PgConnection;
 use dotenvy::dotenv;
 use std::env;
-use crate::preflight::check_directories;
 
 mod db;
 mod endpoints;
