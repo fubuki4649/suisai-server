@@ -37,8 +37,8 @@ pub fn get_all_photos(conn: &mut PgConnection) -> Result<Vec<Photo>, Error> {
         .load(conn)
 }
 
-pub fn update_photo(conn: &mut PgConnection, photo_id: i64, photo: Photo) -> Result<Photo, Error> {
-    diesel::update(photos.find(photo_id))
+pub fn update_photo(conn: &mut PgConnection, photo: Photo) -> Result<Photo, Error> {
+    diesel::update(photos.find(photo.id))
         .set(&photo)
         .returning(Photo::as_returning())
         .get_result(conn)
