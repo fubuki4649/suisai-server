@@ -1,4 +1,4 @@
-use crate::db::models::album::*;
+use crate::db::models::db_album::{AlbumPhoto, DBAlbum};
 use crate::db::schema::{album_photos, albums, photos};
 use diesel::insert_into;
 use diesel::prelude::*;
@@ -41,12 +41,19 @@ pub fn get_photos_in_album(conn: &mut PgConnection, album_id: i32) -> Result<Vec
         .load::<i64>(conn)
 }
 
-pub fn get_albums_containing_photo(conn: &mut PgConnection, photo_id: i64) -> Result<Vec<DBAlbum>, Error> {
-    album_photos::table
+pub fn get_albums_containing_photo(conn: &mut PgConnection, photo_id: i64) -> Result<Vec<i32>, Error> {
+    let db_albums = album_photos::table
         .filter(album_photos::photo_id.eq(photo_id))
         .inner_join(albums::table)
         .select(DBAlbum::as_select())
-        .load(conn)
+        .load(conn)?;
+
+    Ok(
+        db_albums
+            .into_iter()
+            .map(|db_album| db_album.id)
+            .collect()
+    )
 }
 
 pub fn clear_album(conn: &mut PgConnection, album_id: i32) -> Result<usize, Error> {
