@@ -26,7 +26,7 @@ pub fn get_photos_in_album(conn: &mut PgConnection, album_id: i32) -> Result<Vec
 /// to find records with no associated album entries.
 ///
 /// # Arguments
-/// * `conn` - Database connection pool  
+/// * `conn` - Database connection pool
 ///
 /// # Returns
 /// Vec of all photos not belonging to any album, or error if query fails

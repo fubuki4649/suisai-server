@@ -32,8 +32,8 @@ use rocket::serde::{Deserialize, Serialize};
 pub struct Photo {
     #[serde(rename = "photoId")]
     pub id: i64,
-    pub thumbnail_url: String,
     pub hash: String,
+    pub thumbnail_url: String,
     pub file_name: String,
     pub file_path: String,
     pub size_on_disk: String,
@@ -76,8 +76,8 @@ pub struct Photo {
 #[derive(Insertable, Deserialize, Serialize, Debug)]
 #[diesel(table_name = photos)]
 pub struct NewPhoto {
-    pub thumbnail_url: String,
     pub hash: String,
+    pub thumbnail_url: String,
     pub file_name: String,
     pub file_path: String,
     pub size_on_disk: String,
