@@ -1,9 +1,10 @@
 use crate::_utils::json_map::JsonMap;
-use crate::db::operations::album_photo_join::{add_photo_to_album, remove_photo_from_all_albums};
+use crate::db::operations::join_photo_album::{add_photo_to_album, remove_photo_from_all_albums};
 use crate::{unwrap_or_return, DB_POOL};
 use rocket::http::Status;
 use rocket::post;
 use rocket::serde::json::{Json, Value};
+
 
 /// Assigns a photo to an album
 ///

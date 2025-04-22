@@ -1,14 +1,13 @@
 use crate::_utils::json_map::JsonMap;
 use crate::db::models::album::*;
-use crate::db::models::photo::Photo;
 use crate::db::operations::album::{create_album, delete_album, get_all_albums, update_album};
-use crate::db::operations::photo::get_unfiled_photos;
 use crate::{unwrap_or_return, DB_POOL};
 use anyhow::Result;
 use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
+
 
 /// Simple health check endpoint to verify API is responding
 ///
@@ -71,7 +70,7 @@ pub fn rename_album(id: i32, input: Json<Value>) -> Status {
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
 
-        match update_album(&mut conn, Album {id, album_name, photos: vec![]}) {
+        match update_album(&mut conn, Album {id, album_name}) {
             Ok(_) => Ok(Status::Ok),
             Err(Error::NotFound) => Ok(Status::NotFound),
             Err(e) => Err(e.into()),
@@ -111,13 +110,12 @@ pub fn del_album(id: i32) -> Status {
 ///
 /// # Returns
 /// - `200 OK`: JSON array of all albums
-/// - `500 Internal Server Error`: Database or other server error occurred
+/// - `500 Internal Server Error`: Database or another server error occurred
 ///
 /// # Response Body
 /// Array of Album objects, each containing:
 /// - `albumId`: Album's unique identifier (i32)
 /// - `albumName`: Name of the album (String)
-/// - `photos`: Array of photo IDs contained in the album (Vec<i64>)
 #[get("/album/all")]
 pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
     crate::err_to_result_500!({
@@ -125,26 +123,5 @@ pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
         let albums = get_all_albums(&mut conn)?;
         
         Ok(Ok(Json(albums)))
-    })
-}
-
-/// Retrieves all photos that are not assigned to any album
-///
-/// # Endpoint
-/// `GET /album/unfiled`
-///
-/// # Returns
-/// - `200 OK`: JSON array of unfiled photos
-/// - `500 Internal Server Error`: Database or another server error occurred
-///
-/// # Response Body
-/// Array of Photo objects containing metadata about each unfiled photo
-#[get("/album/unfiled")]
-pub fn get_unfiled() -> Result<Json<Vec<Photo>>, Status> {
-    crate::err_to_result_500!({
-        let mut conn = DB_POOL.get()?;
-
-        let unfiled_photos = get_unfiled_photos(&mut conn)?;
-        Ok(Ok(Json(unfiled_photos)))
     })
 }

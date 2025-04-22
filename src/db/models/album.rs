@@ -1,34 +1,7 @@
-/*!
-This module defines structures and attributes used to model and manipulate album data within the application. It leverages Diesel ORM for database interaction and Rocket's serialization/deserialization features for data exchange.
-
-Structures:
-1. `Album`:
-   - Represents an album retrieved from the database or sent to a client.
-   - Fields:
-     - `id` (`i32`): A unique identifier for the album. Serialized as "albumId".
-     - `album_name` (`String`): The name of the album.
-     - `photos` (`Vec<i64>`): A collection of photo identifiers associated with the album.
-   - Attributes:
-     - `Serialize` (Rocket): Enables JSON serialization of `Album`.
-     - `Debug`: Allows for debug formatting of the `Album` structure.
-     - `#[serde(rename_all = "camelCase")]`: Configures the serialization to use camelCase for field names, aligning with common JSON standards.
-     - `#[serde(rename = "albumId")]`: Explicitly renames the `id` field to "albumId" during serialization.
-
-2. `NewAlbum`:
-   - Represents the structure used for album creation in the database.
-   - Fields:
-     - `album_name` (`String`): The name of the new album to be created.
-   - Attributes:
-     - `Insertable` (Diesel): Allows the structure to be used for inserting data into the `albums` table in the database.
-     - `Deserialize` (Rocket): Enables deserialization of incoming JSON data into a `NewAlbum` instance.
-     - `Debug`: Allows for debug formatting of the `NewAlbum` structure.
-     - `#[diesel(table_name = albums)]`: Associates this structure with the `albums` table in the database schema.
-
-Both structures support interaction with the database and the web server, enabling streamlined album creation, storage, and retrieval processes.
-*/
-use crate::db::schema::albums;
+use crate::db::schema::{album_photos, albums};
 use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
+
 
 /// Represents an album with a unique identifier, name, and associated photos.
 ///
@@ -45,13 +18,12 @@ use rocket::serde::{Deserialize, Serialize};
 ///     photos: vec![101, 102],
 /// };
 /// ```
-#[derive(Serialize, Debug)]
+#[derive(Queryable, Selectable, AsChangeset, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Album {
     #[serde(rename = "albumId")]
     pub id: i32,
-    pub album_name: String,
-    pub photos: Vec<i64>
+    pub album_name: String
 }
 
 /// A variant of `Album` without photos or ID, used for creating new album instances.
@@ -73,4 +45,15 @@ pub struct Album {
 #[diesel(table_name = albums)]
 pub struct NewAlbum {
     pub album_name: String,
+}
+
+/// The `AlbumPhoto` struct corresponds to the `album_photos` table, a join table between
+/// `Album` and `Photo` in the database.
+///
+/// It exists exclusively for internal use within `crate::db::operations`
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug)]
+#[diesel(table_name = album_photos)]
+pub(in crate::db) struct AlbumPhoto {
+    pub album_id: i32,
+    pub photo_id: i64,
 }
