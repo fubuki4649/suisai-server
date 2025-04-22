@@ -7,8 +7,19 @@ use std::path::PathBuf;
 use std::process::Command;
 use xxhash_rust::xxh3::xxh3_128;
 
+/// A trait providing methods to extract metadata from an image file path
+/// and convert it into a database-compatible format.
+///
+/// This trait is designed to read EXIF metadata from image files using ExifTool
+/// and prepare it for insertion into the database. It handles various camera and
+/// lens metadata fields, as well as essential photo attributes like timestamps,
+/// file hash, and image dimensions.
+///
+/// All methods in this trait have a default fallback value if metadata cannot be
+/// read, ensuring database operations won't fail due to missing EXIF data.
+///
+/// The trait is primarily implemented for `PathBuf` to work directly with filesystem paths.
 pub trait SuisaiImagePath {
-
     /// Gets the xxh3_128 hash of the image
     fn get_hash(&self) -> String;
 

@@ -25,11 +25,11 @@ pub struct AlbumPhoto {
 }
 
 
-impl Into<DBAlbum> for &Album {
-    fn into(self) -> DBAlbum {
+impl From<&Album> for DBAlbum {
+    fn from(album: &Album) -> DBAlbum {
         DBAlbum {
-            id: self.id,
-            album_name: self.album_name.clone(),
+            id: album.id,
+            album_name: album.album_name.clone(),
         }
     }
 }
