@@ -2,7 +2,7 @@ use infer::get_from_path;
 use infer::MatcherType::Image;
 use std::path::{Path, PathBuf};
 
-pub fn get_images(src: &Path) -> Vec<PathBuf> {
+pub fn get_image_paths(src: &Path) -> Vec<PathBuf> {
     let mut v = Vec::new();
     get_paths_recurse(src, &mut v);
     v

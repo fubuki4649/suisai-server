@@ -8,6 +8,8 @@ use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
+use crate::db::models::photo::Photo;
+use crate::db::operations::photo::get_unfiled_photos;
 
 #[get("/meow")]
 pub fn health_check() -> (Status, &'static str) {
@@ -70,5 +72,15 @@ pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
         }
         
         Ok(Ok(Json(albums)))
+    })
+}
+
+#[get("/album/unfiled")]
+pub fn get_unfiled() -> Result<Json<Vec<Photo>>, Status> {
+    crate::err_to_result_500!({
+        let mut conn = DB_POOL.get()?;
+        
+        let unfiled_photos = get_unfiled_photos(&mut conn)?;
+        Ok(Ok(Json(unfiled_photos)))
     })
 }
