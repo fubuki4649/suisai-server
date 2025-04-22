@@ -25,13 +25,11 @@ pub fn get_all_albums(conn: &mut PgConnection) -> Result<Vec<Album>, Error> {
     let db_albums = albums
         .select(DBAlbum::as_select())
         .load(conn)?;
-    
-    Ok(
-        db_albums
-            .into_iter()
-            .map(|db_album| db_album.try_into_album(conn))
-            .collect::<Result<Vec<Album>, Error>>()?
-    )
+
+    db_albums
+        .into_iter()
+        .map(|db_album| db_album.try_into_album(conn))
+        .collect::<Result<Vec<Album>, Error>>()
 }
 
 pub fn update_album(conn: &mut PgConnection, album: Album) -> Result<Album, Error> {
@@ -39,7 +37,7 @@ pub fn update_album(conn: &mut PgConnection, album: Album) -> Result<Album, Erro
         .set::<DBAlbum>((&album).into())
         .returning(DBAlbum::as_returning())
         .get_result(conn)?;
-    
+
     Ok(album)
 }
 
