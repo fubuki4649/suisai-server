@@ -1,4 +1,4 @@
-use crate::db::models::photo::*;
+use crate::db::models::photo::{NewPhoto, Photo};
 use crate::db::operations::photo::{create_photo, delete_photo, get_photo};
 use crate::DB_POOL;
 use diesel::result::Error;

@@ -1,11 +1,10 @@
-#[macro_use]
-extern crate lazy_static;
 use crate::cli::run_cli;
 use crate::preflight::check_directories;
 use diesel::r2d2::ConnectionManager;
 use diesel::PgConnection;
 use dotenvy::dotenv;
 use std::env;
+use std::sync::LazyLock;
 
 mod db;
 mod endpoints;
@@ -15,12 +14,13 @@ mod ingest;
 mod _utils;
 mod preflight;
 
+
 type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
+static DB_POOL: LazyLock<Pool> = LazyLock::new(|| {
+    establish_connection_pool()
+});
 
-lazy_static! {
-    static ref DB_POOL: Pool = establish_connection_pool();
-}
 
 /// Function to establish database connection pool
 fn establish_connection_pool() -> Pool {

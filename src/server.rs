@@ -1,10 +1,10 @@
 use crate::endpoints::album::*;
+use crate::endpoints::album_photo_join::*;
 use crate::endpoints::photo::*;
 use crate::preflight::check_directories;
 use rocket::routes;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::str::FromStr;
-use crate::endpoints::album_photo_join::{photo_assign_album, photo_clear_album, photo_move_album};
 
 pub async fn start_server() {
 

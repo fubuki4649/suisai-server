@@ -31,5 +31,5 @@ pub async fn run_cli() {
     match cli.command {
         Commands::StartServer {} => start_server().await,
         Commands::Ingest {path, dry, preserve} => ingest(path, dry, preserve),
-    };
+    }
 }
