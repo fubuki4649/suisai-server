@@ -9,7 +9,7 @@ use std::path::Path;
 /// - raws/ : For storing raw photo files
 /// - associated_files/ : For storing associated metadata files
 ///
-/// Creates any missing directories as needed. Returns error if $STORAGE_ROOT is not set
+/// Creates any missing directories as needed. Returns error if `$STORAGE_ROOT` is not set
 /// or if expected paths exist but are not directories.
 pub fn check_directories() -> Result<(), anyhow::Error> {
     let storage_root = env::var("STORAGE_ROOT").map_err(|_| anyhow::anyhow!("$STORAGE_ROOT not set"))?;

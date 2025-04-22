@@ -10,7 +10,7 @@ use xxhash_rust::xxh3::xxh3_128;
 /// A trait providing methods to extract metadata from an image file path
 /// and convert it into a database-compatible format.
 ///
-/// This trait is designed to read EXIF metadata from image files using ExifTool
+/// This trait is designed to read EXIF metadata from image files using `ExifTool`
 /// and prepare it for insertion into the database. It handles various camera and
 /// lens metadata fields, as well as essential photo attributes like timestamps,
 /// file hash, and image dimensions.
@@ -20,7 +20,7 @@ use xxhash_rust::xxh3::xxh3_128;
 ///
 /// The trait is primarily implemented for `PathBuf` to work directly with filesystem paths.
 pub trait SuisaiImagePath {
-    /// Gets the xxh3_128 hash of the image
+    /// Gets the `xxh3_128` hash of the image
     fn get_hash(&self) -> String;
 
     /// Size on disk of the image in KB
@@ -68,7 +68,7 @@ impl SuisaiImagePath for PathBuf {
     fn get_hash(&self) -> String {
         let data = fs::read(self).unwrap_or_default();
         let hash = xxh3_128(&data);
-        format!("{:032x}", hash)
+        format!("{hash:032x}")
     }
 
     fn get_size_on_disk(&self) -> i32 {

@@ -1,4 +1,4 @@
-use crate::db::models::photo::*;
+use crate::db::models::photo::{NewPhoto, Photo};
 use crate::db::schema::album_photos;
 use crate::db::schema::photos::dsl::photos;
 use diesel::insert_into;
@@ -49,7 +49,7 @@ pub fn check_hash(conn: &mut PgConnection, hash: &str) -> Result<Option<Photo>, 
 /// * `photo_id` - ID of the photo to retrieve
 ///
 /// # Returns
-/// Photo with the given ID if found, otherwise NotFound error 
+/// Photo with the given ID if found, otherwise `NotFound` error
 pub fn get_photo(conn: &mut PgConnection, photo_id: i64) -> Result<Photo, Error> {
     photos
         .find(photo_id)
@@ -100,7 +100,7 @@ pub fn delete_photo(conn: &mut PgConnection, photo_id: i64) -> Result<usize, Err
 
 /// Gets all photos from the database that are not currently part of any album
 ///
-/// Photos are compared against album_photos join table using a left outer join
+/// Photos are compared against `album_photos` join table using a left outer join
 /// to find records with no associated album entries.
 ///
 /// # Arguments

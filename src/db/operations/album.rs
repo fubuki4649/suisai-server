@@ -1,4 +1,4 @@
-use crate::db::models::album::*;
+use crate::db::models::album::{Album, NewAlbum};
 use crate::db::models::db_album::DBAlbum;
 use crate::db::schema::albums::dsl::albums;
 use diesel::insert_into;
@@ -28,7 +28,7 @@ pub fn create_album(conn: &mut PgConnection, album: NewAlbum) -> Result<Album, E
 /// * `album_id` - ID of the album to retrieve
 ///
 /// # Returns
-/// Album with the given ID if found, otherwise NotFound error
+/// Album with the given ID if found, otherwise `NotFound` error
 pub fn get_album(conn: &mut PgConnection, album_id: i32) -> Result<Album, Error> {
     albums
         .find(album_id)
