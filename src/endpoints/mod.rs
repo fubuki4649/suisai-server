@@ -1,3 +1,4 @@
 pub mod album;
 pub mod photo;
-pub mod album_photo_join;
+pub mod join_photo_album;
+pub mod album_query;

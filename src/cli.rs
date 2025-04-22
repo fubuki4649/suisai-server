@@ -2,6 +2,7 @@ use crate::ingest::ingest::ingest;
 use crate::server::start_server;
 use clap::{Parser, Subcommand};
 
+
 #[derive(Parser)]
 #[command(name = "suisai", version = "1.0", about = "Backend server for suisai")]
 struct Cli {

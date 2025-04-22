@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use xxhash_rust::xxh3::xxh3_128;
 
+
 /// A trait providing methods to extract metadata from an image file path
 /// and convert it into a database-compatible format.
 ///

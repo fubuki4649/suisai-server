@@ -1,10 +1,12 @@
 use crate::endpoints::album::*;
-use crate::endpoints::album_photo_join::*;
+use crate::endpoints::join_photo_album::*;
 use crate::endpoints::photo::*;
 use crate::preflight::check_directories;
 use rocket::routes;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::str::FromStr;
+use crate::endpoints::album_query::{get_album_photos, get_unfiled_photos};
+
 
 pub async fn start_server() {
 
@@ -35,12 +37,15 @@ pub async fn start_server() {
         del_album,
         all_albums,
         
+        // Album content query endpoints
+        get_album_photos,
+        get_unfiled_photos,
+        
         // Photo endpoints
         new_photo,
         del_photo,
         get_photo_single,
         get_photo_multi,
-        get_unfiled,
         
         // Photo-Album relation endpoints
         photo_assign_album,

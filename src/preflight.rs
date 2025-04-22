@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+
 /// Checks and creates required directory structure for the application.
 ///
 /// This function verifies that all necessary directories exist under `$STORAGE_ROOT`:

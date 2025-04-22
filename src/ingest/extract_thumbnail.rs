@@ -5,6 +5,7 @@ use std::fs::create_dir_all;
 use std::path::Path;
 use std::process::Command;
 
+
 /// Extracts and creates a JPEG thumbnail from a raw image file.
 ///
 /// # Arguments

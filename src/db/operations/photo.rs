@@ -1,9 +1,9 @@
 use crate::db::models::photo::{NewPhoto, Photo};
-use crate::db::schema::album_photos;
 use crate::db::schema::photos::dsl::photos;
 use diesel::insert_into;
 use diesel::prelude::*;
 use diesel::result::Error;
+
 
 /// Creates a new photo entry in the database with associated metadata fields
 ///
@@ -57,19 +57,6 @@ pub fn get_photo(conn: &mut PgConnection, photo_id: i64) -> Result<Photo, Error>
         .first(conn)
 }
 
-/// Gets all photos from the database
-///
-/// # Arguments
-/// * `conn` - Database connection pool
-///
-/// # Returns
-/// All photos found in the database, or an error if the query fails
-pub fn get_all_photos(conn: &mut PgConnection) -> Result<Vec<Photo>, Error> {
-    photos
-        .select(Photo::as_select())
-        .load(conn)
-}
-
 /// Updates an existing photo's fields in the database based on the provided photo's `id`
 ///
 /// # Arguments
@@ -96,22 +83,4 @@ pub fn update_photo(conn: &mut PgConnection, photo: Photo) -> Result<Photo, Erro
 pub fn delete_photo(conn: &mut PgConnection, photo_id: i64) -> Result<usize, Error> {
     diesel::delete(photos.find(photo_id))
         .execute(conn)
-}
-
-/// Gets all photos from the database that are not currently part of any album
-///
-/// Photos are compared against `album_photos` join table using a left outer join
-/// to find records with no associated album entries.
-///
-/// # Arguments
-/// * `conn` - Database connection pool  
-///
-/// # Returns
-/// Vector of all photos not belonging to any album, or error if query fails
-pub fn get_unfiled_photos(conn: &mut PgConnection) -> Result<Vec<Photo>, Error> {
-    crate::db::schema::photos::table
-        .left_outer_join(album_photos::table.on(album_photos::photo_id.eq(crate::db::schema::photos::id)))
-        .filter(album_photos::photo_id.is_null()) // Only those with no match
-        .select(crate::db::schema::photos::all_columns) // Select all fields from `photos`
-        .load::<Photo>(conn)
 }

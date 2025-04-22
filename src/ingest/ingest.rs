@@ -9,6 +9,7 @@ use std::env;
 use std::fs::{copy, create_dir_all, rename};
 use std::path::Path;
 
+
 /// Ingests images from a directory into the photo library, including database storage and thumbnail generation
 pub fn ingest(path: String, dry: bool, no_preserve: bool) {
     println!("Ingesting files from: {path}");

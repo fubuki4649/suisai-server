@@ -2,6 +2,7 @@ use infer::get_from_path;
 use infer::MatcherType::Image;
 use std::path::{Path, PathBuf};
 
+
 /// Recursively traverses a directory to find all image files within
 ///
 /// This function walks through the provided path and all subdirectories to identify
