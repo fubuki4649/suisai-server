@@ -10,7 +10,7 @@ use std::fs::{copy, create_dir_all, rename};
 use std::path::Path;
 
 /// Ingests images from a directory into the photo library, including database storage and thumbnail generation
-pub fn ingest(path: String, dry: bool, preserve: bool) {
+pub fn ingest(path: String, dry: bool, no_preserve: bool) {
     println!("Ingesting files from: {path}");
     if dry {
         println!("Running in dry mode");
@@ -48,19 +48,19 @@ pub fn ingest(path: String, dry: bool, preserve: bool) {
         // Copy or move the image file to the storage location
         let filename = path.file_name().unwrap_or_default().to_string_lossy();
         let new_path = dest_directory.join(filename.to_string());
-        if preserve {
-            // Copy if the preserve flag is set
-            let copy_result = copy(&path, &new_path);
-            match copy_result {
-                Err(e) => println!("Error copying {} to {}: {}", filename, dest_directory.to_str().unwrap(), e),
-                Ok(bytes) => println!("Copied {} to {} ({} bytes)", filename, dest_directory.to_str().unwrap(), bytes)
-            }
-        } else {
-            // Move, otherwise
+        if no_preserve {
+            // Move if the `--no-preserve` flag is set
             let move_result = rename(&path, &new_path);
             match move_result {
                 Err(e) => println!("Error moving {} to {}: {}", filename, dest_directory.to_str().unwrap(), e),
                 _ => println!("Moved {} to {}", filename, dest_directory.to_str().unwrap())
+            }
+        } else {
+            // Copy, otherwise
+            let copy_result = copy(&path, &new_path);
+            match copy_result {
+                Err(e) => println!("Error copying {} to {}: {}", filename, dest_directory.to_str().unwrap(), e),
+                Ok(bytes) => println!("Copied {} to {} ({} bytes)", filename, dest_directory.to_str().unwrap(), bytes)
             }
         }
 

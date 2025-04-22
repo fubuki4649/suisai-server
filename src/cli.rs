@@ -20,8 +20,8 @@ enum Commands {
         path: String,
         #[arg(long, help = "Run ingestion in dry mode (no actual changes to DB or filesystem)")]
         dry: bool,
-        #[arg(long, help = "Copy instead of move files to their new destination (no changes to the original directory)")]
-        preserve: bool,
+        #[arg(long, help = "Move instead of move files to their new destination (default behavior is copy)")]
+        no_preserve: bool,
     }
 }
 
@@ -30,6 +30,6 @@ pub async fn run_cli() {
 
     match cli.command {
         Commands::StartServer {} => start_server().await,
-        Commands::Ingest {path, dry, preserve} => ingest(path, dry, preserve),
+        Commands::Ingest {path, dry, no_preserve} => ingest(path, dry, no_preserve),
     }
 }
