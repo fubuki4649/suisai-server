@@ -22,7 +22,7 @@ lazy_static! {
     static ref DB_POOL: Pool = establish_connection_pool();
 }
 
-// Function to establish database connection pool
+/// Function to establish database connection pool
 fn establish_connection_pool() -> Pool {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::<PgConnection>::new(database_url);
@@ -36,7 +36,7 @@ fn establish_connection_pool() -> Pool {
 async fn main() {
     dotenv().ok();
     
-    // // Run preflight checks
+    // Run preflight checks
     check_directories().unwrap();
     
     run_cli().await;

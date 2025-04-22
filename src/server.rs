@@ -4,12 +4,14 @@ use crate::preflight::check_directories;
 use rocket::routes;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::str::FromStr;
+use crate::endpoints::album_photo_join::{photo_assign_album, photo_clear_album, photo_move_album};
 
 pub async fn start_server() {
 
     // Run preflight checks
     check_directories().unwrap();
 
+    // Set CORS options
     let cors = CorsOptions {
         allowed_origins: AllowedOrigins::all(),
         allowed_methods: ["Get", "Post", "Put", "Patch", "Delete"]
@@ -22,6 +24,7 @@ pub async fn start_server() {
     .to_cors()
     .expect("Failed to create CORS");
 
+    // Start server with appropriate endpoints
     rocket::build().attach(cors).mount("/api", routes![
         // General
         health_check,
@@ -37,6 +40,12 @@ pub async fn start_server() {
         del_photo,
         get_photo_single,
         get_photo_multi,
+        get_unfiled,
+        
+        // Photo-Album relation endpoints
+        photo_assign_album,
+        photo_clear_album,
+        photo_move_album
     ]).launch().await.expect("Failed to launch server");
 
 }
