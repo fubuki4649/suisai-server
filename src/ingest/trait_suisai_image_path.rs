@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use xxhash_rust::xxh3::xxh3_128;
 
-pub trait SuisaiImage {
+pub trait SuisaiImagePath {
 
     /// Gets the xxh3_128 hash of the image
     fn get_hash(&self) -> String;
@@ -53,7 +53,7 @@ pub trait SuisaiImage {
     fn to_db_entry(&self) -> NewPhoto;
 }
 
-impl SuisaiImage for PathBuf {
+impl SuisaiImagePath for PathBuf {
     fn get_hash(&self) -> String {
         let data = fs::read(self).unwrap_or_default();
         let hash = xxh3_128(&data);

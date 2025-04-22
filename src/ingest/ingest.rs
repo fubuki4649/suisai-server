@@ -1,7 +1,7 @@
 use crate::db::operations::photo::{check_hash, create_photo};
 use crate::ingest::extract_thumbnail::extract_thumbnail_full;
-use crate::ingest::get_images::get_images;
-use crate::ingest::trait_suisai_image::SuisaiImage;
+use crate::ingest::get_image_paths::get_image_paths;
+use crate::ingest::trait_suisai_image_path::SuisaiImagePath;
 use crate::DB_POOL;
 use chrono::Datelike;
 use rocket::serde::json::serde_json;
@@ -16,7 +16,7 @@ pub fn ingest(path: String, dry: bool, preserve: bool) {
     }
 
     // Get a list of images 
-    let paths = get_images(Path::new(&path));
+    let paths = get_image_paths(Path::new(&path));
     
     if dry {
         for path in paths {

@@ -1,4 +1,5 @@
 use crate::db::models::photo::*;
+use crate::db::schema::album_photos;
 use crate::db::schema::photos::dsl::photos;
 use diesel::insert_into;
 use diesel::prelude::*;
@@ -46,4 +47,12 @@ pub fn update_photo(conn: &mut PgConnection, photo_id: i64, photo: Photo) -> Res
 pub fn delete_photo(conn: &mut PgConnection, photo_id: i64) -> Result<usize, Error> {
     diesel::delete(photos.find(photo_id))
         .execute(conn)
+}
+
+pub fn get_unfiled_photos(conn: &mut PgConnection) -> Result<Vec<Photo>, Error> {
+    crate::db::schema::photos::table
+        .left_outer_join(album_photos::table.on(album_photos::photo_id.eq(crate::db::schema::photos::id)))
+        .filter(album_photos::photo_id.is_null()) // Only those with no match
+        .select(crate::db::schema::photos::all_columns) // Select all fields from `photos`
+        .load::<Photo>(conn)
 }
