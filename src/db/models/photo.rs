@@ -14,7 +14,7 @@ use rocket::serde::{Deserialize, Serialize};
 /// * `hash` (`String`): xxh3-128 hash value of the photo, used to ensure uniqueness
 /// * `file_name` (`String`): Original filename of the photo
 /// * `file_path` (`String`): Path where the photo is stored on disk
-/// * `size_on_disk` (`String`): Human readable file size 
+/// * `size_on_disk` (`i32`): Size of the photo on disk in KB
 /// * `photo_date` (`NaiveDateTime`): When the photo was taken
 /// * `photo_timezone` (`String`): Timezone info for the photo timestamp
 /// * `resolution` (`Vec<Option<i16>>`): Photo dimensions [width, height]
@@ -36,7 +36,7 @@ pub struct Photo {
     pub thumbnail_url: String,
     pub file_name: String,
     pub file_path: String,
-    pub size_on_disk: String,
+    pub size_on_disk: i32,
     pub photo_date: NaiveDateTime,
     pub photo_timezone: String,
     pub resolution: Vec<Option<i16>>,
@@ -61,7 +61,7 @@ pub struct Photo {
 /// - `hash` (`String`): xxh3-128 hash value of the photo
 /// - `file_name` (`String`): File name including extension
 /// - `file_path` (`String`): Full path to storage location
-/// - `size_on_disk` (`String`): Size of the photo file 
+/// - `size_on_disk` (`i32`): Size of the photo on disk in KB
 /// - `photo_date` (`NaiveDateTime`): When the photo was taken
 /// - `photo_timezone` (`String`): Timezone of photo timestamp
 /// - `resolution` (`Vec<Option<i16>>`): Width and height dimensions
@@ -80,7 +80,7 @@ pub struct NewPhoto {
     pub thumbnail_url: String,
     pub file_name: String,
     pub file_path: String,
-    pub size_on_disk: String,
+    pub size_on_disk: i32,
     pub photo_date: NaiveDateTime,
     pub photo_timezone: String,
     pub resolution: Vec<Option<i16>>,

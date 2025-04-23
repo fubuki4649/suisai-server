@@ -229,7 +229,7 @@ impl SuisaiImagePath for PathBuf {
             hash: self.get_hash(),
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
             file_path: self.to_string_lossy().to_string(),
-            size_on_disk: self.get_size_on_disk().to_string(),
+            size_on_disk: self.get_size_on_disk(),
             photo_date: self.get_photo_date(),
             photo_timezone: self.get_photo_timezone(),
             resolution: self.get_resolution().into_iter().map(Some).collect(),
