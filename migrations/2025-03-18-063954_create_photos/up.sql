@@ -5,7 +5,7 @@ CREATE TABLE photos (
     thumbnail_url TEXT NOT NULL,
     file_name TEXT NOT NULL,
     file_path TEXT NOT NULL,
-    size_on_disk TEXT NOT NULL,
+    size_on_disk INTEGER NOT NULL,
     photo_date TIMESTAMP NOT NULL,
     photo_timezone VARCHAR(6) NOT NULL,
     resolution SMALLINT[] NOT NULL CHECK (

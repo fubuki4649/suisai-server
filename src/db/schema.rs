@@ -22,7 +22,7 @@ diesel::table! {
         thumbnail_url -> Text,
         file_name -> Text,
         file_path -> Text,
-        size_on_disk -> Text,
+        size_on_disk -> Int4,
         photo_date -> Timestamp,
         #[max_length = 6]
         photo_timezone -> Varchar,
