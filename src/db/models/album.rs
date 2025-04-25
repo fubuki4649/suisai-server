@@ -42,6 +42,7 @@ pub struct Album {
 /// };
 /// ```
 #[derive(Insertable, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 #[diesel(table_name = albums)]
 pub struct NewAlbum {
     pub album_name: String,
