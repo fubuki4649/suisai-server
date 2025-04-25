@@ -74,6 +74,7 @@ pub struct Photo {
 /// - `shutter_speed` (`String`): Shutter speed as string
 /// - `aperture` (`f32`): Lens aperture
 #[derive(Insertable, Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
 #[diesel(table_name = photos)]
 pub struct NewPhoto {
     pub hash: String,
