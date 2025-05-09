@@ -11,19 +11,21 @@ use rocket::serde::json::{Json, Value};
 /// # Endpoint
 /// `POST /photo/album/unfile`
 ///
-/// # URL Parameters
-/// - `ids`: The IDs of the photos to remove from all albums (Vec<i64>)
+/// # Request Body
+/// JSON object with:
+/// - `photo_ids`: Array of photo IDs to remove from all albums
 ///
 /// # Returns
 /// - `200 OK`: Photos were successfully removed from all albums
 /// - `500 Internal Server Error`: Database or other server error occurred 
-#[post("/photo/album/unfile", format = "json", data = "<ids>")]
-pub fn photo_clear_album(ids: Json<Vec<i64>>) -> Status {
+#[post("/photo/album/unfile", format = "json", data = "<input>")]
+pub fn photo_clear_album(input: Json<Value>) -> Status {
+    let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
+    
     crate::err_to_500!({
-        let id_vec = ids.into_inner();
         let mut conn = DB_POOL.get()?;
 
-        remove_photo_from_album(&mut conn, &id_vec)?;
+        remove_photo_from_album(&mut conn, &photo_ids)?;
         Ok(Status::Ok)
     })
 }
@@ -45,7 +47,7 @@ pub fn photo_clear_album(ids: Json<Vec<i64>>) -> Status {
 #[post("/photo/album/reassign", format = "json", data = "<input>")]
 pub fn photo_move_album(input: Json<Value>) -> Status {
     let album_id = unwrap_or_return!(input.get_value::<i32>("album_id"), Status::BadRequest);
-    let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("album_id"), Status::BadRequest);
+    let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
 
     crate::err_to_500!({
         let mut conn = DB_POOL.get()?;
