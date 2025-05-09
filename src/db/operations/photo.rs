@@ -1,9 +1,9 @@
 use crate::db::models::photo::{NewPhoto, Photo};
 use crate::db::schema::photos::dsl::photos;
+use crate::db::schema::photos::id;
 use diesel::insert_into;
 use diesel::prelude::*;
 use diesel::result::Error;
-
 
 /// Creates a new photo entry in the database with associated metadata fields
 ///
@@ -42,34 +42,21 @@ pub fn check_hash(conn: &mut PgConnection, hash: &str) -> Result<Option<Photo>, 
         })
 }
 
-/// Gets a photo by ID from the database
+/// Gets photos by ID from the database
 ///
 /// # Arguments
 /// * `conn` - Database connection pool
-/// * `photo_id` - ID of the photo to retrieve
+/// * `photo_ids` - Vec of IDs to retrieve
 ///
 /// # Returns
-/// Photo with the given ID if found, otherwise `NotFound` error
-pub fn get_photo(conn: &mut PgConnection, photo_id: i64) -> Result<Photo, Error> {
+/// Vec<Photo> of found photos
+pub fn get_photo(conn: &mut PgConnection, photo_ids: &[i64]) -> Result<Vec<Photo>, Error> {
+    if photo_ids.is_empty() { return Ok(vec![]); }
+    
     photos
-        .find(photo_id)
+        .filter(id.eq_any(photo_ids))
         .select(Photo::as_select())
-        .first(conn)
-}
-
-/// Updates an existing photo's fields in the database based on the provided photo's `id`
-///
-/// # Arguments
-/// * `conn` - Database connection pool
-/// * `photo` - Photo with updated fields and ID of record to update
-///
-/// # Returns
-/// The updated photo if successful, or error if the photo was not found or if update fails
-pub fn update_photo(conn: &mut PgConnection, photo: Photo) -> Result<Photo, Error> {
-    diesel::update(photos.find(photo.id))
-        .set(&photo)
-        .returning(Photo::as_returning())
-        .get_result(conn)
+        .load(conn)
 }
 
 /// Deletes a photo from the database by its ID
@@ -80,7 +67,7 @@ pub fn update_photo(conn: &mut PgConnection, photo: Photo) -> Result<Photo, Erro
 ///
 /// # Returns
 /// Number of rows affected (1 if successful, 0 if photo not found)
-pub fn delete_photo(conn: &mut PgConnection, photo_id: i64) -> Result<usize, Error> {
+pub fn delete_photo(conn: &mut PgConnection, photo_id: &i64) -> Result<usize, Error> {
     diesel::delete(photos.find(photo_id))
         .execute(conn)
 }
