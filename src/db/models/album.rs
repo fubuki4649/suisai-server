@@ -7,15 +7,13 @@ use rocket::serde::{Deserialize, Serialize};
 ///
 /// # Fields
 /// * `id`: Album's unique ID, serialized as `albumId` in JSON
-/// * `album_name`: Album name 
-/// * `photos`: Collection of photo IDs in this album
+/// * `album_name`: Album name
 ///
 /// # Example
 /// ```
 /// let album = Album {
 ///     id: 1, 
 ///     album_name: "Vacation".into(),
-///     photos: vec![101, 102],
 /// };
 /// ```
 #[derive(Queryable, Selectable, AsChangeset, Serialize, Deserialize, Debug)]

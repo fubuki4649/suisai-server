@@ -42,13 +42,10 @@ pub async fn start_server() {
         get_unfiled_photos,
         
         // Photo endpoints
-        new_photo,
         del_photo,
-        get_photo_single,
-        get_photo_multi,
+        get_photos,
         
         // Photo-Album relation endpoints
-        photo_assign_album,
         photo_clear_album,
         photo_move_album
     ]).launch().await.expect("Failed to launch server");
