@@ -19,7 +19,7 @@ diesel::table! {
         id -> Int8,
         #[max_length = 32]
         hash -> Varchar,
-        thumbnail_url -> Text,
+        thumbnail_path -> Text,
         file_name -> Text,
         file_path -> Text,
         size_on_disk -> Int4,

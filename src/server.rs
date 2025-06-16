@@ -1,12 +1,12 @@
 use crate::endpoints::album::*;
+use crate::endpoints::album_query::{get_album_photos, get_unfiled_photos};
 use crate::endpoints::join_photo_album::*;
 use crate::endpoints::photo::*;
+use crate::endpoints::thumbnail::get_thumbnail;
 use crate::preflight::check_directories;
 use rocket::routes;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::str::FromStr;
-use crate::endpoints::album_query::{get_album_photos, get_unfiled_photos};
-
 
 pub async fn start_server() {
 
@@ -47,7 +47,10 @@ pub async fn start_server() {
         
         // Photo-Album relation endpoints
         photo_clear_album,
-        photo_move_album
+        photo_move_album,
+        
+        // Thumbnail serving endpoints
+        get_thumbnail,
     ]).launch().await.expect("Failed to launch server");
 
 }

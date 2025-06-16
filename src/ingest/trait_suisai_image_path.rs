@@ -225,7 +225,7 @@ impl SuisaiImagePath for PathBuf {
 
     fn to_db_entry(&self) -> NewPhoto {
         NewPhoto {
-            thumbnail_url: "".to_string(),
+            thumbnail_path: "".to_string(),
             hash: self.get_hash(),
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
             file_path: self.to_string_lossy().to_string(),
