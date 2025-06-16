@@ -1,11 +1,11 @@
-use crate::db::models::photo::{Photo};
+use crate::_utils::json_map::JsonMap;
+use crate::db::models::photo::Photo;
 use crate::db::operations::photo::{delete_photo, get_photo};
 use crate::{unwrap_or_return, DB_POOL};
 use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get};
-use crate::_utils::json_map::JsonMap;
 
 /// Delete multiple photos from the database by their IDs
 ///

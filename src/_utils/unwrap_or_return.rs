@@ -5,7 +5,8 @@
 ///
 /// # Parameters
 /// - `$expr`: A `Result<T, E>` expression to unwrap.
-/// - `$err_return`: The value to return from the function if the result is an `Err`.
+/// - `$err_return` (optional): The value to return from the function if the result is `Err`.
+///   Defaults to `Err(Status::InternalServerError)`
 ///
 /// # Example
 /// ```
@@ -17,6 +18,12 @@ macro_rules! unwrap_or_return {
         match $expr {
             Ok(val) => val,
             Err(_) => return $err_return,
+        }
+    };
+    ($expr:expr) => {
+        match $expr {
+            Ok(val) => val,
+            Err(_) => return Err(Status::InternalServerError),
         }
     };
 }

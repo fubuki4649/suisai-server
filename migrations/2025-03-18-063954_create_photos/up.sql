@@ -2,7 +2,7 @@
 CREATE TABLE photos (
     id BIGSERIAL PRIMARY KEY,
     hash VARCHAR(32) NOT NULL,
-    thumbnail_url TEXT NOT NULL,
+    thumbnail_path TEXT NOT NULL,
     file_name TEXT NOT NULL,
     file_path TEXT NOT NULL,
     size_on_disk INTEGER NOT NULL,

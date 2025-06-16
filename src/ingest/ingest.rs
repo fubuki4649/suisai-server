@@ -79,7 +79,7 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
 
         // Create a database record for the image
         let mut photo = new_path.to_db_entry();
-        photo.thumbnail_url = thumbnail_path;
+        photo.thumbnail_path = thumbnail_path;
         println!("{}", serde_json::to_string_pretty(&photo).unwrap());
 
         println!("Adding {} to database", photo.file_path);

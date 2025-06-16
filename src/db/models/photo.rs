@@ -3,7 +3,6 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
 
-
 /// Represents a photo entity with associated metadata stored in the database.
 ///
 /// The struct implements serialization for JSON responses and can be queried/updated using Diesel ORM.
@@ -33,7 +32,7 @@ pub struct Photo {
     #[serde(rename = "photoId")]
     pub id: i64,
     pub hash: String,
-    pub thumbnail_url: String,
+    pub thumbnail_path: String,
     pub file_name: String,
     pub file_path: String,
     pub size_on_disk: i32,
@@ -78,7 +77,7 @@ pub struct Photo {
 #[diesel(table_name = photos)]
 pub struct NewPhoto {
     pub hash: String,
-    pub thumbnail_url: String,
+    pub thumbnail_path: String,
     pub file_name: String,
     pub file_path: String,
     pub size_on_disk: i32,
