@@ -46,7 +46,7 @@ pub fn check_hash(conn: &mut PgConnection, hash: &str) -> Result<Option<Photo>, 
 ///
 /// # Arguments
 /// * `conn` - Database connection pool
-/// * `photo_ids` - Vec of IDs to retrieve
+/// * `photo_ids` - Slice of IDs to retrieve
 ///
 /// # Returns
 /// Vec<Photo> of found photos, which is empty if nothing is found
@@ -63,11 +63,11 @@ pub fn get_photo(conn: &mut PgConnection, photo_ids: &[i64]) -> Result<Vec<Photo
 ///
 /// # Arguments
 /// * `conn` - Database connection pool
-/// * `photo_id` - ID of the photo to delete
+/// * `photo_ids` - Slice of IDs to delete
 ///
 /// # Returns
-/// Number of rows affected (1 if successful, 0 if photo not found)
-pub fn delete_photo(conn: &mut PgConnection, photo_id: &i64) -> Result<usize, Error> {
-    diesel::delete(photos.find(photo_id))
-        .execute(conn)
+/// Vec<Photo> of deleted photos, which is empty of none of the photos are found
+pub fn delete_photo(conn: &mut PgConnection, photo_ids: &[i64]) -> Result<Vec<Photo>, Error> {
+    diesel::delete(photos.filter(id.eq_any(photo_ids)))
+        .get_results::<Photo>(conn)
 }

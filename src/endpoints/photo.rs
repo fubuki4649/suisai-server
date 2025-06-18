@@ -1,3 +1,4 @@
+use std::fs;
 use crate::_utils::json_map::JsonMap;
 use crate::db::operations::photo::{delete_photo, get_photo};
 use crate::{unwrap_or_return, DB_POOL};
@@ -25,14 +26,14 @@ use crate::models::photo_api::ApiReturnPhoto;
 pub fn del_photo(input: Json<Value>) -> Status {
     let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
     let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
-
-    for id in photo_ids.iter() {
-        if let Err(e) = delete_photo(&mut conn, id) {
-            // Ignore `Error::NotFound`, return 500 otherwise
-            if e != Error::NotFound {
-                return Status::InternalServerError;
-            }
-        }
+    
+    // Delete photos from DB
+    let deleted = unwrap_or_return!(delete_photo(&mut conn, &photo_ids), Status::InternalServerError);
+    
+    // Delete photos & thumbnail from hard drive, ignore nonexistent/permission errors
+    for photo in deleted {
+        let _ = fs::remove_file(photo.file_path);
+        let _ = fs::remove_file(photo.thumbnail_path);
     }
     
     Status::Ok
