@@ -1,4 +1,4 @@
-use crate::db::models::album::AlbumPhoto;
+use crate::models::album::AlbumPhoto;
 use crate::db::schema::album_photos;
 use diesel::insert_into;
 use diesel::prelude::*;

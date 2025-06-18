@@ -52,7 +52,7 @@ pub struct NewAlbum {
 /// It exists exclusively for internal use within `crate::db::operations`
 #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = album_photos)]
-pub(in crate::db) struct AlbumPhoto {
+pub(crate) struct AlbumPhoto {
     pub album_id: i32,
     pub photo_id: i64,
 }

@@ -1,5 +1,5 @@
 use crate::_utils::json_map::JsonMap;
-use crate::db::models::album::*;
+use crate::models::album::*;
 use crate::db::operations::album::{create_album, delete_album, get_all_albums, update_album};
 use crate::{unwrap_or_return, DB_POOL};
 use anyhow::Result;
