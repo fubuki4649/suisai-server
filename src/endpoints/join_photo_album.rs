@@ -21,13 +21,12 @@ use rocket::serde::json::{Json, Value};
 #[post("/photo/album/unfile", format = "json", data = "<input>")]
 pub fn photo_clear_album(input: Json<Value>) -> Status {
     let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
     
-    crate::err_to_500!({
-        let mut conn = DB_POOL.get()?;
-
-        remove_photo_from_album(&mut conn, &photo_ids)?;
-        Ok(Status::Ok)
-    })
+    match remove_photo_from_album(&mut conn, &photo_ids) {
+        Ok(_) => Status::Ok,
+        Err(_) => Status::InternalServerError,
+    }
 }
 
 /// Moves photos from their current album(s) to a different album
@@ -49,15 +48,17 @@ pub fn photo_move_album(input: Json<Value>) -> Status {
     let album_id = unwrap_or_return!(input.get_value::<i32>("album_id"), Status::BadRequest);
     let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
 
-    crate::err_to_500!({
-        let mut conn = DB_POOL.get()?;
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
 
-        // Delete existing photo-album associations
-        remove_photo_from_album(&mut conn, &photo_ids)?;
+    // Delete existing photo-album associations
+    if remove_photo_from_album(&mut conn, &photo_ids).is_err() {
+        return Status::InternalServerError;
+    }
 
-        // Create a new photo-album association
-        add_photo_to_album(&mut conn, album_id, &photo_ids)?;
-
-        Ok(Status::Ok)
-    })
+    // Create a new photo-album association
+    if add_photo_to_album(&mut conn, album_id, &photo_ids).is_err() {
+        return Status::InternalServerError;
+    }
+    
+    Status::Ok
 }
