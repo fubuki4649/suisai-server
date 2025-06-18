@@ -13,7 +13,7 @@ mod server;
 mod ingest;
 mod _utils;
 mod preflight;
-
+pub mod models;
 
 type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 

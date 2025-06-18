@@ -1,11 +1,12 @@
 use crate::_utils::json_map::JsonMap;
-use crate::db::models::photo::Photo;
 use crate::db::operations::photo::{delete_photo, get_photo};
 use crate::{unwrap_or_return, DB_POOL};
 use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get};
+use crate::models::photo_api::ApiReturnPhoto;
+
 
 /// Delete multiple photos from the database by their IDs
 ///
@@ -51,17 +52,17 @@ pub fn del_photo(input: Json<Value>) -> Status {
 /// - `photo_ids`: JSON array of photo IDs to retrieve
 ///
 /// # Returns
-/// - `Ok(Json<Vec<Photo>>)` containing an array of found photos
+/// - `Ok(Json<Vec<ApiReturnPhoto>>)` containing an array of found photos
 ///   (skips any IDs that don't exist)
 /// - `Status::InternalServerError` (500) if retrieval fails
 #[get("/photo/get", format = "json", data = "<input>")]
-pub fn get_photos(input: Json<Value>) -> Result<Json<Vec<Photo>>, Status> {
+pub fn get_photos(input: Json<Value>) -> Result<Json<Vec<ApiReturnPhoto>>, Status> {
     let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Err(Status::BadRequest));
 
     crate::err_to_result_500!({
         let mut conn = DB_POOL.get()?;
 
         let photos = get_photo(&mut conn, &photo_ids)?;
-        Ok(Ok(Json(photos)))
+        Ok(Ok(Json(photos.into_iter().map(ApiReturnPhoto::from).collect())))
     })
 }

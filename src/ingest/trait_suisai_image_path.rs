@@ -1,5 +1,5 @@
 use crate::_utils::run_command::ShellReturn;
-use crate::db::models::photo::NewPhoto;
+use crate::models::photo::NewPhoto;
 use crate::sh;
 use chrono::NaiveDateTime;
 use std::fs;

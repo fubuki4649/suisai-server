@@ -1,4 +1,4 @@
-use crate::db::models::photo::Photo;
+use crate::models::photo::Photo;
 use crate::db::schema::{album_photos, photos};
 use diesel::prelude::*;
 use diesel::result::Error;
