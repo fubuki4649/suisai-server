@@ -49,7 +49,7 @@ pub fn check_hash(conn: &mut PgConnection, hash: &str) -> Result<Option<Photo>, 
 /// * `photo_ids` - Vec of IDs to retrieve
 ///
 /// # Returns
-/// Vec<Photo> of found photos
+/// Vec<Photo> of found photos, which is empty if nothing is found
 pub fn get_photo(conn: &mut PgConnection, photo_ids: &[i64]) -> Result<Vec<Photo>, Error> {
     if photo_ids.is_empty() { return Ok(vec![]); }
     

@@ -20,10 +20,4 @@ macro_rules! unwrap_or_return {
             Err(_) => return $err_return,
         }
     };
-    ($expr:expr) => {
-        match $expr {
-            Ok(val) => val,
-            Err(_) => return Err(Status::InternalServerError),
-        }
-    };
 }

@@ -37,13 +37,18 @@ pub fn health_check() -> (Status, &'static str) {
 #[post("/album/new", format = "json", data = "<input>")]
 pub fn new_album(input: Json<Value>) -> Status {
     let album_name = unwrap_or_return!(input.get_value::<String>("album_name"), Status::BadRequest);
-
-    crate::err_to_500!({
-        let mut conn = DB_POOL.get()?;
-
-        create_album(&mut conn, NewAlbum {album_name: album_name.to_string()})?;
-        Ok(Status::Created)
-    })
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
+    
+    match create_album(&mut conn, NewAlbum {album_name: album_name.to_string()}) {
+        Ok(rows) => {
+            match rows {
+                1 => Status::Created,
+                0 => Status::Conflict,
+                _ => Status::InternalServerError,
+            }
+        },
+        Err(_) => Status::InternalServerError,
+    }
 }
 
 /// Renames an existing album in the database
@@ -66,16 +71,13 @@ pub fn new_album(input: Json<Value>) -> Status {
 #[patch("/album/<id>/rename", format = "json", data = "<input>")]
 pub fn rename_album(id: i32, input: Json<Value>) -> Status {
     let album_name = unwrap_or_return!(input.get_value::<String>("album_name"), Status::BadRequest);
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
 
-    crate::err_to_500!({
-        let mut conn = DB_POOL.get()?;
-
-        match update_album(&mut conn, Album {id, album_name}) {
-            Ok(_) => Ok(Status::Ok),
-            Err(Error::NotFound) => Ok(Status::NotFound),
-            Err(e) => Err(e.into()),
-        }
-    })
+    match update_album(&mut conn, Album {id, album_name}) {
+        Ok(_) => Status::Ok,
+        Err(Error::NotFound) => Status::NotFound,
+        Err(_) => Status::InternalServerError,
+    }
 }
 
 /// Deletes an album from the database by ID
@@ -92,15 +94,13 @@ pub fn rename_album(id: i32, input: Json<Value>) -> Status {
 /// - `500 Internal Server Error`: Database or other server error occurred
 #[delete("/album/<id>/delete")]
 pub fn del_album(id: i32) -> Status {
-    crate::err_to_500!({
-        let mut conn = DB_POOL.get()?;
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
 
-        match delete_album(&mut conn, id) {
-            Ok(_) => Ok(Status::Ok),
-            Err(Error::NotFound) => Ok(Status::NotFound),
-            Err(e) => Err(e.into()),
-        }
-    })
+    match delete_album(&mut conn, id) {
+        Ok(_) => Status::Ok,
+        Err(Error::NotFound) => Status::NotFound,
+        Err(_) => Status::InternalServerError,
+    }
 }
 
 /// Retrieves all albums from the database
@@ -118,10 +118,8 @@ pub fn del_album(id: i32) -> Status {
 /// - `albumName`: Name of the album (String)
 #[get("/album/all")]
 pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
-    crate::err_to_result_500!({
-        let mut conn = DB_POOL.get()?;
-        let albums = get_all_albums(&mut conn)?;
-        
-        Ok(Ok(Json(albums)))
-    })
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
+    let albums = unwrap_or_return!(get_all_albums(&mut conn), Err(Status::InternalServerError));
+    
+    Ok(Json(albums))
 }

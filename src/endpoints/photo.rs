@@ -24,21 +24,18 @@ use crate::models::photo_api::ApiReturnPhoto;
 #[delete("/photo/delete", format = "json", data = "<input>")]
 pub fn del_photo(input: Json<Value>) -> Status {
     let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
 
-    crate::err_to_500!({
-        let mut conn = DB_POOL.get()?;
-
-        for id in photo_ids.iter() {
-            // Ignore `Error::NotFound`
-            if let Err(e) = delete_photo(&mut conn, id) {
-                if e != Error::NotFound {
-                    return Err(e.into());
-                }
+    for id in photo_ids.iter() {
+        if let Err(e) = delete_photo(&mut conn, id) {
+            // Ignore `Error::NotFound`, return 500 otherwise
+            if e != Error::NotFound {
+                return Status::InternalServerError;
             }
         }
-
-        Ok(Status::Ok)
-    })
+    }
+    
+    Status::Ok
 }
 
 
@@ -58,11 +55,8 @@ pub fn del_photo(input: Json<Value>) -> Status {
 #[get("/photo/get", format = "json", data = "<input>")]
 pub fn get_photos(input: Json<Value>) -> Result<Json<Vec<ApiReturnPhoto>>, Status> {
     let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Err(Status::BadRequest));
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
-    crate::err_to_result_500!({
-        let mut conn = DB_POOL.get()?;
-
-        let photos = get_photo(&mut conn, &photo_ids)?;
-        Ok(Ok(Json(photos.into_iter().map(ApiReturnPhoto::from).collect())))
-    })
+    let photos = unwrap_or_return!(get_photo(&mut conn, &photo_ids), Err(Status::InternalServerError));
+    Ok(Json(photos.into_iter().map(ApiReturnPhoto::from).collect()))
 }
