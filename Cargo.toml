@@ -16,3 +16,5 @@ rocket_cors = "0.6.0"
 infer = "0.19.0"
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
 Inflector = { version = "0.11.4", default-features = false }
+fuser = "0.16.0"
+libc = "0.2.175"

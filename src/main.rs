@@ -7,13 +7,13 @@ use std::env;
 use std::sync::LazyLock;
 
 mod db;
-mod endpoints;
+mod webserver;
 mod cli;
-mod server;
 mod ingest;
 mod _utils;
 mod preflight;
 pub mod models;
+mod virtfs;
 
 type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
