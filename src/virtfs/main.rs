@@ -1,7 +1,7 @@
+use crate::virtfs::virtfs::SuisaiMount;
+use fuser::MountOption;
 use std::io;
 use std::path::Path;
-use fuser::MountOption;
-use crate::virtfs::fs_struct::HelloFS;
 
 pub fn mount_fuse(mountpoint: &str) -> io::Result<()> {
     let mount_path = Path::new(mountpoint);
@@ -11,9 +11,14 @@ pub fn mount_fuse(mountpoint: &str) -> io::Result<()> {
     }
 
     match fuser::mount2(
-        HelloFS,
+        SuisaiMount::new(),
         mount_path,
-        &[MountOption::RO, MountOption::FSName("suisai".to_string())],
+        &[
+            MountOption::RO,
+            MountOption::AllowOther,
+            MountOption::AutoUnmount,
+            MountOption::FSName("suisai".to_string())
+        ],
     ) {
         Ok(_) => {
             println!("Successfully mounted FUSE at {mountpoint}");

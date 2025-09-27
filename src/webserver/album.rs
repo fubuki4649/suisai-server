@@ -18,7 +18,7 @@ use rocket::{delete, get, patch, post};
 /// - `418 I'm a teapot`: API is up and running
 #[get("/meow")]
 pub fn health_check() -> (Status, &'static str) {
-    (Status::ImATeapot, ">///<\n")
+    (Status::ImATeapot, "/ᐠ ˵> ⩊ <˵ マ\n")
 }
 
 /// Creates a new album in the database

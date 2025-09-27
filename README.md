@@ -68,6 +68,10 @@ Create a `.env` file with the following variables
 `$STORAGE_ROOT` - Specifies where to store all data (see below)
 
 
+### Enabling `fuse`
+
+Enable `user_allow_other` in `/etc/fuse.conf`
+
 ## Directory Structure
 
 The default storage structure for `Suisai`. Symlinks may be used to relocate subdirectories to another location, volume, etc.

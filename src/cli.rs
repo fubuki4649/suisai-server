@@ -1,6 +1,6 @@
 use crate::ingest::ingest::ingest;
-use crate::virtfs::fuser::mount_fuse;
-use crate::webserver::webserver::start_webserver;
+use crate::virtfs::main::mount_fuse;
+use crate::webserver::main::start_webserver;
 use clap::{Parser, Subcommand};
 use rocket::tokio;
 use std::thread;

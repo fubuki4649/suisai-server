@@ -1,2 +1,4 @@
-mod fs_struct;
-pub mod fuser;
+pub mod main;
+mod virtfs;
+mod inode;
+mod realfs;
