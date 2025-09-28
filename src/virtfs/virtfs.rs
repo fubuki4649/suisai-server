@@ -224,9 +224,14 @@ impl Filesystem for SuisaiMount {
     /// * `reply`: A `ReplyXattr` object to send the result.
     ///
     /// This filesystem does not support extended attributes (for now), so it returns a size of 0.
-    fn listxattr(&mut self, _req: &Request<'_>, _ino: u64, _size: u32, reply: fuser::ReplyXattr) {
-        // No extended attributes supported
-        reply.size(0);
+    fn listxattr(&mut self, _req: &Request<'_>, _ino: u64, size: u32, reply: fuser::ReplyXattr) {
+        if size == 0 {
+            // Caller is asking how much space they need
+            reply.size(0);
+        } else {
+            // Caller provided a buffer, return empty list
+            reply.data(&[]);
+        }
     }
 
     /// ### FUSE `access` operation.
