@@ -1,4 +1,4 @@
-use crate::virtfs::virtfs::SuisaiMount;
+use crate::virtfs::virtfs_structs::VirtualFs;
 use fuser::MountOption;
 use std::io;
 use std::path::Path;
@@ -11,7 +11,7 @@ pub fn mount_fuse(mountpoint: &str) -> io::Result<()> {
     }
 
     match fuser::mount2(
-        SuisaiMount::new(),
+        VirtualFs::new(),
         mount_path,
         &[
             MountOption::RO,

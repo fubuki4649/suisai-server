@@ -1,8 +1,8 @@
+use crate::virtfs::virtfs_structs::VirtualFs;
 use fuser::{FileAttr, FileType, Filesystem, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, Request};
 use libc::{EIO, ENOENT};
 use std::ffi::OsStr;
 use std::time::{Duration, SystemTime};
-use crate::virtfs::inode::InodeManager;
 
 const TTL: Duration = Duration::from_secs(1);
 const HELLO_TXT_CONTENT: &str = "Hello, World!\n";
@@ -51,18 +51,6 @@ fn root_dir_attr() -> FileAttr {
     }
 }
 
-pub(super) struct SuisaiMount {
-    inodes: InodeManager
-}
-
-impl SuisaiMount {
-    pub fn new() -> Self{
-        SuisaiMount {
-            inodes: InodeManager::new()
-        }
-    }
-}
-
 /// Implementation of the FUSE `Filesystem` trait for `SuisaiMount`.
 ///
 /// This implementation defines the behavior of the virtual filesystem from the perspective
@@ -71,7 +59,7 @@ impl SuisaiMount {
 ///
 /// The filesystem presented is a simple, read-only filesystem with a root directory
 /// containing a single file named "hello.txt".
-impl Filesystem for SuisaiMount {
+impl Filesystem for VirtualFs {
     /// ### FUSE `lookup` operation.
     ///
     /// This method is called by the kernel when it needs to find a file within a directory. Used by
@@ -84,14 +72,19 @@ impl Filesystem for SuisaiMount {
     /// * `reply`: A `ReplyEntry` object to send the result of the lookup (the file's attributes
     ///   or an error).
     ///
-    /// In this implementation, it only recognizes "hello.txt" if the parent is the rootfs directory.
-    /// For any other name or parent, it returns `ENOENT` (No such file or directory).
+    /// Returns a FileAttr for a file or directory given a parent inode + a filename
     fn lookup(&mut self, _req: &Request<'_>, parent: u64, name: &OsStr, reply: ReplyEntry) {
-        // TODO: Replace Placeholder
-        if parent == INODE_ROOT && name == "hello.txt" {
-            reply.entry(&TTL, &hello_file_attr(), 0);
-        } else {
-            reply.error(ENOENT);
+        let parent_inode = self.inodes.get(&parent);
+        let child_ino = parent_inode.and_then(|f| f.get_child(name));
+        let child_inode = child_ino.and_then(|f| self.inodes.get(&f));
+
+        // Make sure child inode exists (`name: &OsStr` isn't invalid)
+        if let Some(inode) = child_inode {
+            let attr = self.attributes.get(child_ino.unwrap(), inode.real_path.as_ref());
+            // Make sure metadata is readable (should never be unreadable if the inode exists)
+            if let Ok(attr) = attr {
+                reply.entry(&TTL, attr, inode.generation);
+            }
         }
     }
 
@@ -106,9 +99,11 @@ impl Filesystem for SuisaiMount {
     /// * `_fh`: File handle (unused).
     /// * `reply`: A `ReplyAttr` object to send the file's attributes or an error.
     fn getattr(&mut self, _req: &Request<'_>, ino: u64, _fh: Option<u64>, reply: ReplyAttr) {
-        match self.inodes.get_attr(ino) {
-            Some(attr) => reply.attr(&TTL, attr),
-            None => reply.error(ENOENT),
+        let path = self.inodes.get(&ino).and_then(|f| f.real_path.as_ref());
+
+        match self.attributes.get(ino, path) {
+            Ok(attr) => reply.attr(&TTL, attr),
+            Err(_) => reply.error(ENOENT),
         }
     }
 
@@ -254,7 +249,7 @@ impl Filesystem for SuisaiMount {
     /// without checking the specific `mask`. For non-existent inodes, it returns `ENOENT`.
     fn access(&mut self, _req: &Request<'_>, ino: u64, _mask: i32, reply: fuser::ReplyEmpty) {
         // Simple implementation: allow access if the inode exists
-        match self.inodes.exists(ino) {
+        match self.inodes.contains_key(&ino) {
             true => reply.ok(),
             false => reply.error(ENOENT),
         }
