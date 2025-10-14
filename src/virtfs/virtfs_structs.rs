@@ -22,7 +22,7 @@ impl VirtualFs {
     pub(super) fn new() -> Self {
         // Init Cache
         let cache_size = if let Ok(cache_size) = (|| {
-            Ok::<usize, anyhow::Error>(env::var("FILE_METADATA_CACHE_SIZE")?.parse::<usize>()?)
+            Ok::<usize, anyhow::Error>(env::var("FILE_ATTRIBUTE_CACHE_SIZE")?.parse::<usize>()?)
         })() {
             cache_size
         } else {
@@ -37,20 +37,21 @@ impl VirtualFs {
             next_inode_generation: 0,
         };
 
-        // Create root node (ino=1)
-        virtfs.create_node(None);
+        // Create root node (ino=1) with parent = self
+        virtfs.create_node(OsString::from(""), 1, None);
 
         virtfs
     }
 
-    pub(super) fn create_node(&mut self, real_path: Option<OsString>) {
+    // real_path == None for directories
+    pub(super) fn create_node(&mut self, name: OsString, parent: u64, real_path: Option<OsString>) {
         // Create Inode
         self.inodes.insert(
             self.next_inode,
-            Inode::new(self.next_inode_generation, real_path),
+            Inode::new(name, parent, self.next_inode_generation, real_path),
         );
 
-        // Update State
+        // Update ino / inode generation tracking
         self.next_inode += 1;
         if self.next_inode > u64::MAX {
             self.next_inode_generation += 1;
@@ -125,25 +126,42 @@ impl AttributeCache {
 
 
 pub(super) struct Inode {
+    pub(super) name: OsString,
+    pub(super) parent: u64,
     pub(super) generation: u64,
     pub(super) real_path: Option<OsString>,
 }
 
 impl Inode {
-    fn new(generation: u64, real_path: Option<OsString>) -> Self {
+    fn new(name: OsString, parent: u64, generation: u64, real_path: Option<OsString>) -> Self {
         Inode {
+            name,
+            parent,
             generation,
             real_path,
         }
     }
 
-    // Returns Inode #
-    pub(super) fn get_child(&self, name: &OsStr) -> Option<u64> {
-        todo!()
+    // Gets the kind of node. Either a directory or a file
+    pub(super) fn get_kind(&self) -> FileType {
+        if self.real_path.is_none() {
+            FileType::Directory
+        } else {
+            // Do not support symlinks for now
+            FileType::RegularFile
+        }
     }
 
-    // Return Hashmap<File name, Inode number>
-    pub(super) fn get_children(&self) -> Option<HashMap<OsString, u64>> {
-        todo!()
+    // Returns Inode # for the given child name. None if not found
+    pub(super) fn get_child(&self, name: &OsStr) -> Option<u64> {
+        // TODO : Replace Placeholder
+        None
+    }
+
+    // Return Hashmap<File name, Inode number> of all children.
+    // Empty hashmap if theres nothing
+    pub(super) fn get_children(&self) -> HashMap<OsString, u64> {
+        // TODO : Replace Placeholder
+        HashMap::new()
     }
 }

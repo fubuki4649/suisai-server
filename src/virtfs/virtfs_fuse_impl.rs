@@ -1,55 +1,12 @@
 use crate::virtfs::virtfs_structs::VirtualFs;
-use fuser::{FileAttr, FileType, Filesystem, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, Request};
-use libc::{EIO, ENOENT};
+use fuser::{FileType, Filesystem, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, Request};
+use libc::{EIO, EISDIR, ENOENT, ENOTDIR};
 use std::ffi::OsStr;
-use std::time::{Duration, SystemTime};
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
+use std::time::Duration;
 
 const TTL: Duration = Duration::from_secs(1);
-const HELLO_TXT_CONTENT: &str = "Hello, World!\n";
-const INODE_ROOT: u64 = 1;
-const INODE_HELLO: u64 = 2;
-
-// Metadata for "hello.txt"
-fn hello_file_attr() -> FileAttr {
-    FileAttr {
-        ino: INODE_HELLO,
-        size: HELLO_TXT_CONTENT.len() as u64,
-        blocks: 1,
-        atime: SystemTime::now(),
-        mtime: SystemTime::now(),
-        ctime: SystemTime::now(),
-        crtime: SystemTime::now(),
-        kind: FileType::RegularFile,
-        perm: 0o644,
-        nlink: 1,
-        uid: unsafe { libc::geteuid() },
-        gid: unsafe { libc::getegid() },
-        rdev: 0,
-        blksize: 512,
-        flags: 0,
-    }
-}
-
-// Metadata for root directory
-fn root_dir_attr() -> FileAttr {
-    FileAttr {
-        ino: INODE_ROOT,
-        size: 0,
-        blocks: 0,
-        atime: SystemTime::now(),
-        mtime: SystemTime::now(),
-        ctime: SystemTime::now(),
-        crtime: SystemTime::now(),
-        kind: FileType::Directory,
-        perm: 0o755,
-        nlink: 2,
-        uid: unsafe { libc::geteuid() },
-        gid: unsafe { libc::getegid() },
-        rdev: 0,
-        blksize: 512,
-        flags: 0,
-    }
-}
 
 /// Implementation of the FUSE `Filesystem` trait for `SuisaiMount`.
 ///
@@ -123,19 +80,52 @@ impl Filesystem for VirtualFs {
     /// * `_flags`: Read flags (unused).
     /// * `_lock_owner`: Lock owner (unused).
     /// * `reply`: A `ReplyData` object to send the read data or an error.
-    ///
-    /// This implementation only handles reading from `INODE_HELLO` ("hello.txt"). It returns
-    /// the content of `HELLO_TXT_CONTENT`. For any other inode, it returns `EIO` (I/O Error).
     fn read(&mut self, _req: &Request<'_>, ino: u64, _fh: u64, offset: i64, size: u32, _flags: i32, _lock_owner: Option<u64>, reply: ReplyData) {
-        // TODO : Replace Placeholder
-        if ino != INODE_HELLO {
-            reply.error(EIO);
-            return;
+        let inode = self.inodes.get(&ino);
+
+        // Make sure inode exists
+        match inode {
+            Some(inode) => {
+                // Skip for non-directories
+                if inode.get_kind() != FileType::RegularFile {
+                    reply.error(EISDIR);
+                    return;
+                }
+
+                // Open file
+                let real_path = inode.real_path.as_ref().unwrap();
+                let mut file = match File::open(real_path) {
+                    Ok(f) => f,
+                    Err(_) => {
+                        reply.error(EIO);
+                        return;
+                    }
+                };
+
+                // Seek to offset
+                if let Err(_) = file.seek(SeekFrom::Start(offset as u64)) {
+                    reply.error(EIO);
+                    return;
+                }
+
+                // Read up to `size` bytes
+                let mut buffer = vec![0u8; size as usize];
+                let bytes_read = match file.read(&mut buffer) {
+                    Ok(n) => n,
+                    Err(_) => {
+                        reply.error(EIO);
+                        return;
+                    }
+                };
+
+                // Send data back to kernel
+                reply.data(&buffer[..bytes_read]);
+            }
+            None => {
+                reply.error(ENOENT);
+                return;
+            }
         }
-        let data = HELLO_TXT_CONTENT.as_bytes();
-        let start = std::cmp::min(offset as usize, data.len());
-        let end = std::cmp::min(start + size as usize, data.len());
-        reply.data(&data[start..end]);
     }
 
     /// ### FUSE `flush` operation.
@@ -168,26 +158,41 @@ impl Filesystem for VirtualFs {
     /// * `offset`: The offset within the directory to start reading from.
     /// * `reply`: A `ReplyDirectory` object to send the directory entries.
     ///
-    /// This implementation only handles reading the root directory (`INODE_ROOT`). It returns
-    /// entries for ".", "..", and "hello.txt". For any other inode, it returns `ENOENT`.
+    /// It's only meant to be called with a directory, so non-directories (file, symlink, etc)
+    /// yields ENOTDIR
     fn readdir(&mut self, _req: &Request<'_>, ino: u64, _fh: u64, offset: i64, mut reply: ReplyDirectory) {
-        // TODO : Replace Placeholder
-        if ino != INODE_ROOT {
-            reply.error(ENOENT);
-            return;
-        }
-        let entries = [
-            (INODE_ROOT, FileType::Directory, "."),
-            (INODE_ROOT, FileType::Directory, ".."),
-            (INODE_HELLO, FileType::RegularFile, "hello.txt"),
-        ];
-        for (i, entry) in entries.iter().enumerate().skip(offset as usize) {
-            let (ino, kind, name) = entry;
-            if reply.add(*ino, (i + 1) as i64, *kind, name) {
-                break;
+        let inode = self.inodes.get(&ino);
+
+        // Make sure inode exists
+        match inode {
+            Some(inode) => {
+                // Skip for non-directories
+                if inode.get_kind() != FileType::Directory {
+                    reply.error(ENOTDIR);
+                    return;
+                }
+
+                // Return `.` and `..`
+                if offset <= 0 { let _ = reply.add(ino, 1, FileType::Directory, "."); }
+                if offset <= 1 {let _ = reply.add(inode.parent, 2, FileType::Directory, ".."); }
+
+                // Return children
+                let children = inode.get_children();
+                for (i, entry) in children.iter().enumerate().skip(offset as usize) {
+                    let (name, ino) = entry;
+                    let child = self.inodes.get(&ino).unwrap();
+
+                    if reply.add(*ino, (i + 3) as i64, child.get_kind(), &child.name) {
+                        break;
+                    }
+                }
+                reply.ok();
+            }
+            None => {
+                reply.error(ENOENT);
+                return;
             }
         }
-        reply.ok();
     }
 
     /// ### FUSE `getxattr` operation.
