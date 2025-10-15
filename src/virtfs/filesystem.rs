@@ -1,4 +1,4 @@
-use crate::virtfs::virtfs_structs::VirtualFs;
+use crate::virtfs::virtfs::VirtualFs;
 use fuser::{FileType, Filesystem, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, Request};
 use libc::{EIO, EISDIR, ENOENT, ENOTDIR};
 use std::ffi::OsStr;
@@ -7,6 +7,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::time::Duration;
 
 const TTL: Duration = Duration::from_secs(1);
+
 
 /// Implementation of the FUSE `Filesystem` trait for `SuisaiMount`.
 ///
@@ -31,8 +32,7 @@ impl Filesystem for VirtualFs {
     ///
     /// Returns a FileAttr for a file or directory given a parent inode + a filename
     fn lookup(&mut self, _req: &Request<'_>, parent: u64, name: &OsStr, reply: ReplyEntry) {
-        let parent_inode = self.inodes.get(&parent);
-        let child_ino = parent_inode.and_then(|f| f.get_child(name));
+        let child_ino = self.get_child(parent, name);
         let child_inode = child_ino.and_then(|f| self.inodes.get(&f));
 
         // Make sure child inode exists (`name: &OsStr` isn't invalid)
@@ -41,8 +41,11 @@ impl Filesystem for VirtualFs {
             // Make sure metadata is readable (should never be unreadable if the inode exists)
             if let Ok(attr) = attr {
                 reply.entry(&TTL, attr, inode.generation);
+                return;
             }
         }
+        
+        reply.error(EIO);
     }
 
     /// ### FUSE `getattr` operation.
@@ -87,7 +90,7 @@ impl Filesystem for VirtualFs {
         match inode {
             Some(inode) => {
                 // Skip for non-directories
-                if inode.get_kind() != FileType::RegularFile {
+                if inode.kind != FileType::RegularFile {
                     reply.error(EISDIR);
                     return;
                 }
@@ -167,7 +170,7 @@ impl Filesystem for VirtualFs {
         match inode {
             Some(inode) => {
                 // Skip for non-directories
-                if inode.get_kind() != FileType::Directory {
+                if inode.kind != FileType::Directory {
                     reply.error(ENOTDIR);
                     return;
                 }
@@ -177,12 +180,12 @@ impl Filesystem for VirtualFs {
                 if offset <= 1 {let _ = reply.add(inode.parent, 2, FileType::Directory, ".."); }
 
                 // Return children
-                let children = inode.get_children();
+                let children = self.get_children(ino).unwrap();
                 for (i, entry) in children.iter().enumerate().skip(offset as usize) {
-                    let (name, ino) = entry;
+                    let (_name, ino) = entry;
                     let child = self.inodes.get(&ino).unwrap();
 
-                    if reply.add(*ino, (i + 3) as i64, child.get_kind(), &child.name) {
+                    if reply.add(*ino, (i + 3) as i64, child.kind, &child.name) {
                         break;
                     }
                 }

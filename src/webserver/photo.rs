@@ -6,7 +6,7 @@ use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get};
-use crate::models::photo_api::ApiReturnPhoto;
+use crate::models::photo_http_api::ApiReturnPhoto;
 
 
 /// Delete multiple photos from the database by their IDs

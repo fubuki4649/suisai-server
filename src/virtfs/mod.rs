@@ -1,4 +1,4 @@
 pub mod main;
-mod virtfs_structs;
-mod virtfs_fuse_impl;
-mod realfs;
+mod virtfs;
+mod filesystem;
+mod fileattr_cache;

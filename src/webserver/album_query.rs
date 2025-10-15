@@ -4,7 +4,7 @@ use anyhow::Result;
 use rocket::get;
 use rocket::http::Status;
 use rocket::serde::json::Json;
-use crate::models::photo_api::ApiReturnPhoto;
+use crate::models::photo_http_api::ApiReturnPhoto;
 
 
 /// Retrieves all photos linked to a given album

@@ -1,4 +1,4 @@
-use crate::virtfs::virtfs_structs::VirtualFs;
+use crate::virtfs::virtfs::VirtualFs;
 use fuser::MountOption;
 use std::io;
 use std::path::Path;
