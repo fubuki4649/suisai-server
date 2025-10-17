@@ -1,13 +1,13 @@
+use crate::virtfs::fileattr_cache::AttributeCache;
+use crate::virtfs::inode::Inode;
 use fuser::FileType;
 use lru::LruCache;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::num::NonZeroUsize;
-use crate::virtfs::fileattr_cache::AttributeCache;
 
 
-// Structs
 pub(super) struct VirtualFs {
     pub inodes: HashMap<u64, Inode>,
     pub attributes: AttributeCache,
@@ -15,17 +15,7 @@ pub(super) struct VirtualFs {
     pub(crate) next_inode_generation: u64,
 }
 
-pub(super) struct Inode {
-    pub(super) name: OsString,
-    pub(super) kind: FileType,
-    pub(super) parent: u64,
-    pub(super) children: HashMap<OsString, u64>,
-    pub(super) generation: u64,
-    pub(super) real_path: Option<OsString>,
-}
-
-
-// Impls
+// Public impl block
 impl VirtualFs {
     pub(super) fn new() -> Self {
         // Init Cache
@@ -51,20 +41,6 @@ impl VirtualFs {
         virtfs
     }
 
-    pub(super) fn create_inode(&mut self, name: OsString, filetype: FileType, parent: u64, real_path: Option<OsString>) {
-        // Create Inode
-        self.inodes.insert(
-            self.next_inode,
-            Inode::new(name, filetype, parent, self.next_inode_generation, real_path),
-        );
-
-        // Update ino / inode generation tracking
-        self.next_inode += 1;
-        if self.next_inode > u64::MAX {
-            self.next_inode_generation += 1;
-        }
-    }
-
     /// Returns `u64` inode number if found; `None` if either `ino` or `name` are not found
     pub(super) fn get_child(&self, ino: u64, name: &OsStr) -> Option<u64> {
         // TODO : Replace Placeholder
@@ -84,15 +60,51 @@ impl VirtualFs {
     }
 }
 
-impl Inode {
-    pub(crate) fn new(name: OsString, kind: FileType, parent: u64, generation: u64, real_path: Option<OsString>) -> Self {
-        Inode {
-            name,
-            kind,
-            parent,
-            children: HashMap::new(),
-            generation,
-            real_path,
+// Private impl block (mostly inode-specific features)
+impl VirtualFs {
+    fn create_inode(&mut self, name: OsString, filetype: FileType, parent: u64, real_path: Option<OsString>) {
+        // Create Inode
+        self.inodes.insert(
+            self.next_inode,
+            Inode::new(parent, name, filetype, self.next_inode_generation, real_path),
+        );
+
+        // Update ino / inode generation tracking
+        self.next_inode += 1;
+        if self.next_inode > u64::MAX {
+            self.next_inode_generation += 1;
+        }
+    }
+
+    // Recursive deletes an inode along with all of its children
+    fn del_inode_recursive(&mut self, ino: u64) {
+        if let Some(inode) = self.inodes.remove(&ino) {
+            // Delete children
+            inode.children.iter().for_each(|(_name, child_ino)| {
+                self.del_inode_recursive(*child_ino)
+            });
+        }
+    }
+
+    // Returns `true` if the inode's children are up-to-date
+    // Otherwise, return `false` and clear the children
+    fn validate_inode(&mut self, ino: u64) -> bool {
+        match self.inodes.remove_entry(&ino) {
+            Some((ino, inode)) => {
+                // If children are hydrated, reinsert inode and return true
+                if inode.children_hydrated() {
+                    self.inodes.insert(ino, inode);
+                    return true
+                }
+
+                // Otherwise, delete children and re-insert inode
+                inode.children.iter().for_each(|(_, child_ino)| {
+                    self.del_inode_recursive(*child_ino);
+                });
+                self.inodes.insert(ino, inode);
+                false
+            },
+            None => false,
         }
     }
 }

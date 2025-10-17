@@ -1,10 +1,10 @@
+use fuser::{FileAttr, FileType};
+use lru::LruCache;
 use std::ffi::OsString;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::MetadataExt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use fuser::{FileAttr, FileType};
-use lru::LruCache;
 
 const BLKSIZE: u32 = 4096;
 
