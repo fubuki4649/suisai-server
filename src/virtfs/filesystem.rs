@@ -32,11 +32,12 @@ impl Filesystem for VirtualFs {
     ///
     /// Returns a FileAttr for a file or directory given a parent inode + a filename
     fn lookup(&mut self, _req: &Request<'_>, parent: u64, name: &OsStr, reply: ReplyEntry) {
-        let child_ino = self.get_child(parent, name);
+        let child_ino = self.inodes.get_child(&parent, name);
         let child_inode = child_ino.and_then(|f| self.inodes.get(&f));
 
         // Make sure child inode exists (`name: &OsStr` isn't invalid)
-        if let Some(inode) = child_inode {
+        if let Some(inodeRef) = child_inode {
+            let inode = inodeRef.borrow();
             let attr = self.attributes.get(child_ino.unwrap(), inode.real_path.as_ref());
             // Make sure metadata is readable (should never be unreadable if the inode exists)
             if let Ok(attr) = attr {
@@ -59,11 +60,19 @@ impl Filesystem for VirtualFs {
     /// * `_fh`: File handle (unused).
     /// * `reply`: A `ReplyAttr` object to send the file's attributes or an error.
     fn getattr(&mut self, _req: &Request<'_>, ino: u64, _fh: Option<u64>, reply: ReplyAttr) {
-        let path = self.inodes.get(&ino).and_then(|f| f.real_path.as_ref());
+        // Make sure inode exists
+        match self.inodes.get(&ino) {
+            Some(ir) => {
+                let inode = ir.borrow();
+                let path = inode.real_path.as_ref();
 
-        match self.attributes.get(ino, path) {
-            Ok(attr) => reply.attr(&TTL, attr),
-            Err(_) => reply.error(ENOENT),
+                // Make sure metadata is readable (should never be unreadable if the inode exists)
+                match self.attributes.get(ino, path) {
+                    Ok(attr) => reply.attr(&TTL, attr),
+                    Err(_) => reply.error(ENOENT),
+                }
+            }
+            None => {reply.error(ENOENT)}
         }
     }
 
@@ -84,11 +93,13 @@ impl Filesystem for VirtualFs {
     /// * `_lock_owner`: Lock owner (unused).
     /// * `reply`: A `ReplyData` object to send the read data or an error.
     fn read(&mut self, _req: &Request<'_>, ino: u64, _fh: u64, offset: i64, size: u32, _flags: i32, _lock_owner: Option<u64>, reply: ReplyData) {
-        let inode = self.inodes.get(&ino);
+        let inode_ref = self.inodes.get(&ino);
 
         // Make sure inode exists
-        match inode {
-            Some(inode) => {
+        match inode_ref {
+            Some(ir) => {
+                let inode = ir.borrow();
+
                 // Skip for non-directories
                 if inode.kind != FileType::RegularFile {
                     reply.error(EISDIR);
@@ -164,11 +175,13 @@ impl Filesystem for VirtualFs {
     /// It's only meant to be called with a directory, so non-directories (file, symlink, etc)
     /// yields ENOTDIR
     fn readdir(&mut self, _req: &Request<'_>, ino: u64, _fh: u64, offset: i64, mut reply: ReplyDirectory) {
-        let inode = self.inodes.get(&ino);
+        let inodes_ref = self.inodes.get(&ino);
 
         // Make sure inode exists
-        match inode {
-            Some(inode) => {
+        match inodes_ref {
+            Some(ir) => {
+                let inode = ir.borrow();
+
                 // Skip for non-directories
                 if inode.kind != FileType::Directory {
                     reply.error(ENOTDIR);
@@ -180,10 +193,13 @@ impl Filesystem for VirtualFs {
                 if offset <= 1 {let _ = reply.add(inode.parent, 2, FileType::Directory, ".."); }
 
                 // Return children
-                let children = self.get_children(ino).unwrap();
+                // TODO: Verify children are hydrated + populated before querying
+                let children = &inode.children;
                 for (i, entry) in children.iter().enumerate().skip(offset as usize) {
                     let (_name, ino) = entry;
-                    let child = self.inodes.get(&ino).unwrap();
+
+                    let child_ref = self.inodes.get(&ino).unwrap();
+                    let child = child_ref.borrow();
 
                     if reply.add(*ino, (i + 3) as i64, child.kind, &child.name) {
                         break;

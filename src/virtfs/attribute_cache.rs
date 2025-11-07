@@ -16,10 +16,12 @@ impl AttributeCache {
         self.0.contains(ino)
     }
 
+    // TODO: The function signature is a bit of a hack, using Option<&OsString> to also encode for inode type
+    //       This is a bit of a hack, but it works so I'm leaving it here for now
     pub(super) fn get(&mut self, ino: u64, real_path: Option<&OsString>) -> io::Result<&FileAttr> {
         self.0.try_get_or_insert(ino, || {
             match real_path {
-                // Read file attributes for inodes with a real path (files)
+                // Read file attributes for inodes with a real path (assume its a file)
                 Some(path) => {
                     if let Ok(metadata) = std::fs::metadata(path) {
                         Ok(FileAttr {
@@ -48,7 +50,7 @@ impl AttributeCache {
                         Err(Error::new(ErrorKind::InvalidFilename, "Failed to read metadata. Either bad path or permission issue"))
                     }
                 },
-                // Return attributes for a directory (directories do not correspond to real paths)
+                // Return attributes for a directory (assume its a directory)
                 None => {
                     Ok(FileAttr {
                         ino,
