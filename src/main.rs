@@ -7,7 +7,7 @@ use std::env;
 use std::sync::LazyLock;
 
 mod db;
-mod webserver;
+mod endpoints;
 mod cli;
 mod ingest;
 mod _utils;

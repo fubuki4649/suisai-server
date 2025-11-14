@@ -1,6 +1,6 @@
 use crate::ingest::ingest::ingest;
 use crate::virtfs::main::mount_fuse;
-use crate::webserver::main::start_webserver;
+use crate::endpoints::main::start_webserver;
 use clap::{Parser, Subcommand};
 use rocket::tokio;
 use std::thread;
@@ -38,7 +38,7 @@ pub async fn run_cli() {
 
     match cli.command {
         Commands::StartServer { fuse_mount, disable_fuse } => {
-            // Spawn the webserver on its own async task
+            // Spawn the endpoints on its own async task
             let web_handle = tokio::spawn(async move {
                 start_webserver().await;
             });
@@ -55,7 +55,7 @@ pub async fn run_cli() {
                 });
             }
 
-            // Await the webserver to keep the process alive
+            // Await the endpoints to keep the process alive
             let _ = web_handle.await;
         }
         Commands::Ingest { source, dry, no_preserve } => ingest(source, dry, no_preserve),

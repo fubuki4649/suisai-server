@@ -1,13 +1,12 @@
-use crate::webserver::album::*;
-use crate::webserver::album_query::{get_album_photos, get_unfiled_photos};
-use crate::webserver::join_photo_album::*;
-use crate::webserver::photo::*;
-use crate::webserver::thumbnail::get_thumbnail;
 use crate::preflight::check_directories;
+use crate::endpoints::album::*;
+use crate::endpoints::management::*;
+use crate::endpoints::meow::health_check;
+use crate::endpoints::photo::*;
+use crate::endpoints::thumbnail::get_thumbnail;
 use rocket::routes;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::str::FromStr;
-
 
 pub async fn start_webserver() {
 
@@ -27,7 +26,7 @@ pub async fn start_webserver() {
     .to_cors()
     .expect("Failed to create CORS");
 
-    // Start server with appropriate webserver
+    // Start server with appropriate endpoints
     rocket::build().attach(cors).mount("/api", routes![
         // General
         health_check,
@@ -37,20 +36,14 @@ pub async fn start_webserver() {
         rename_album,
         del_album,
         all_albums,
-        
-        // Album content query webserver
-        get_album_photos,
-        get_unfiled_photos,
-        
-        // Photo webserver
         del_photo,
         get_photos,
         
-        // Photo-Album relation webserver
-        photo_clear_album,
-        photo_move_album,
+        // Photo-Album relation endpoints
+        unfile,
+        reassign,
         
-        // Thumbnail serving webserver
+        // Thumbnail serving endpoints
         get_thumbnail,
     ]).launch().await.expect("Failed to launch server");
 
