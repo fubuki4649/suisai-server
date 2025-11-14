@@ -13,7 +13,8 @@ use crate::models::photo::Photo;
 /// - `size_on_disk` (`i32`): Size of the photo on disk in KB
 /// - `photo_date` (`NaiveDateTime`): When the photo was taken
 /// - `photo_timezone` (`String`): Timezone info for the photo timestamp
-/// - `resolution` (`Vec<Option<i16>>`): Photo dimensions [width, height]
+/// - `resolution_width` (`i16`): Photo width in pixels
+/// - `resolution_height` (`i16`): Photo height in pixels
 /// - `mime_type` (`String`): Media type of the photo (e.g. "image/x-sony-arw")
 /// - `camera_model` (`String`): Make and model of the camera used
 /// - `lens_model` (`String`): Make and model of the lens used
@@ -32,7 +33,8 @@ pub struct ApiReturnPhoto {
     pub size_on_disk: i32,
     pub photo_date: NaiveDateTime,
     pub photo_timezone: String,
-    pub resolution: Vec<Option<i16>>,
+    pub resolution_width: i16,
+    pub resolution_height: i16,
     pub mime_type: String,
     pub camera_model: String,
     pub lens_model: String,
@@ -53,7 +55,8 @@ impl From<Photo> for ApiReturnPhoto {
             size_on_disk: value.size_on_disk,
             photo_date: value.photo_date,
             photo_timezone: value.photo_timezone,
-            resolution: value.resolution,
+            resolution_width: value.resolution_width,
+            resolution_height: value.resolution_height,
             mime_type: value.mime_type,
             camera_model: value.camera_model,
             lens_model: value.lens_model,

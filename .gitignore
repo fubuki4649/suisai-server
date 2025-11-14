@@ -21,3 +21,6 @@ Cargo.lock
 
 # Added by cargo
 /target
+
+# Ignore diesel lock
+.diesel_lock

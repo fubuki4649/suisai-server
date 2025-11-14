@@ -1,7 +1,7 @@
 use crate::cli::run_cli;
 use crate::preflight::check_directories;
 use diesel::r2d2::ConnectionManager;
-use diesel::PgConnection;
+use diesel::MysqlConnection;
 use dotenvy::dotenv;
 use std::env;
 use std::sync::LazyLock;
@@ -15,7 +15,7 @@ mod preflight;
 pub mod models;
 mod virtfs;
 
-type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
 static DB_POOL: LazyLock<Pool> = LazyLock::new(|| {
     establish_connection_pool()
@@ -25,7 +25,7 @@ static DB_POOL: LazyLock<Pool> = LazyLock::new(|| {
 /// Function to establish database connection pool
 fn establish_connection_pool() -> Pool {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let manager = ConnectionManager::<PgConnection>::new(database_url);
+    let manager = ConnectionManager::<MysqlConnection>::new(database_url);
     Pool::builder()
         .build(manager)
         .expect("Failed to create pool")

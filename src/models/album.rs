@@ -1,4 +1,4 @@
-use crate::db::schema::{album_photos, albums};
+use crate::db::schema::{album_photo_join, albums};
 use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
 
@@ -51,8 +51,8 @@ pub struct NewAlbum {
 ///
 /// It exists exclusively for internal use within `crate::db::operations`
 #[derive(Queryable, Selectable, Insertable, AsChangeset, Debug)]
-#[diesel(table_name = album_photos)]
+#[diesel(table_name = album_photo_join)]
 pub(crate) struct AlbumPhoto {
-    pub album_id: i32,
+    pub parent_id: i32,
     pub photo_id: i64,
 }
