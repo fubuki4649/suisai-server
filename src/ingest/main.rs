@@ -33,6 +33,7 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
     let raw_storage_dir = format!("{}/raws", env::var("STORAGE_ROOT").unwrap());
     let raw_storage_path = Path::new(&raw_storage_dir);
 
+    // Iterate over all found paths
     for path in paths {
         // Skip if this image is already in the database
         let hash = path.get_hash();

@@ -1,5 +1,5 @@
 use crate::endpoints::main::start_webserver;
-use crate::ingest::ingest::ingest;
+use crate::ingest::main::ingest;
 use clap::{Parser, Subcommand};
 use rocket::tokio;
 
