@@ -4,7 +4,7 @@ use crate::models::photo_http_api::ApiReturnPhoto;
 use crate::{unwrap_or_return, DB_POOL};
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
-use rocket::{delete, get, post};
+use rocket::{delete, post};
 use std::fs;
 
 

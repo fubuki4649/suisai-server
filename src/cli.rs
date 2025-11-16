@@ -1,9 +1,7 @@
-use crate::ingest::ingest::ingest;
-use crate::virtfs::main::mount_fuse;
 use crate::endpoints::main::start_webserver;
+use crate::ingest::ingest::ingest;
 use clap::{Parser, Subcommand};
 use rocket::tokio;
-use std::thread;
 
 #[derive(Parser)]
 #[command(name = "suisai", version = "1.0", about = "Backend server for suisai")]
@@ -17,10 +15,6 @@ struct Cli {
 enum Commands {
     #[command(about = "Start the web server used by the frontend")]
     StartServer {
-        #[arg(help = "Path where to mount the FUSE directory", required_unless_present = "disable_fuse")]
-        fuse_mount: Option<String>,
-        #[arg(long, help = "Do not mount a FUSE directory")]
-        disable_fuse: bool,
     },
     #[command(about = "Ingest camera raws from a directory")]
     Ingest {
@@ -37,23 +31,11 @@ pub async fn run_cli() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::StartServer { fuse_mount, disable_fuse } => {
+        Commands::StartServer { } => {
             // Spawn the endpoints on its own async task
             let web_handle = tokio::spawn(async move {
                 start_webserver().await;
             });
-
-            // Optionally mount FUSE on a separate OS thread
-            if !disable_fuse {
-                // fuse_mount should never be None if disable_fuse is false; The CLI should prevent this from happening
-                let mountpoint = fuse_mount.unwrap();
-
-                thread::spawn(move || {
-                    if let Err(e) = mount_fuse(&mountpoint) {
-                        eprintln!("Failed to mount FUSE at '{}': {}", mountpoint, e);
-                    }
-                });
-            }
 
             // Await the endpoints to keep the process alive
             let _ = web_handle.await;

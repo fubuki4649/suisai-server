@@ -12,8 +12,7 @@ mod cli;
 mod ingest;
 mod _utils;
 mod preflight;
-pub mod models;
-mod virtfs;
+mod models;
 
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
