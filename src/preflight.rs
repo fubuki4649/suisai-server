@@ -14,13 +14,13 @@ use std::path::Path;
 /// or if expected paths exist but are not directories.
 pub fn check_directories() -> Result<(), anyhow::Error> {
     let storage_root = env::var("STORAGE_ROOT").map_err(|_| anyhow::anyhow!("$STORAGE_ROOT not set"))?;
+    let thumbnail_root = env::var("THUMBNAIL_ROOT").map_err(|_| anyhow::anyhow!("THUMBNAIL_ROOT not set"))?;
 
     // Check if `$STORAGE_ROOT`, `$STORAGE_ROOT/thumbs` and `$STORAGE_ROOT/raws`, 
     // and `$STORAGE_ROOT/associated_files` exist as directories.
-    let paths = vec![
-        format!("{}/thumbs", storage_root),
-        format!("{}/raws", storage_root),
-        format!("{}/associated_files", storage_root),
+    let paths = [
+        storage_root,
+        thumbnail_root,
     ];
 
     for path in paths {

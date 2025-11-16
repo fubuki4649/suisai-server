@@ -62,7 +62,7 @@ pub trait SuisaiImagePath {
     fn get_aperture(&self) -> f32;
 
     /// Returns a `crate::db::models::NewPhoto`. Does not populate the `thumbnail` field
-    fn to_db_entry(&self) -> NewPhoto;
+    fn to_db_entry(&self, thumbnail_path: String) -> NewPhoto;
 }
 
 impl SuisaiImagePath for PathBuf {
@@ -223,9 +223,9 @@ impl SuisaiImagePath for PathBuf {
         }
     }
 
-    fn to_db_entry(&self) -> NewPhoto {
+    fn to_db_entry(&self, thumbnail_path: String) -> NewPhoto {
         NewPhoto {
-            thumbnail_path: "".to_string(),
+            thumbnail_path,
             hash: self.get_hash(),
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
             file_path: self.to_string_lossy().to_string(),

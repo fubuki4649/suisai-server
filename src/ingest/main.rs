@@ -23,14 +23,14 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
     // In dry run mode, just print what would happen without making changes
     if dry {
         for path in paths {
-            println!("{}", serde_json::to_string_pretty(&path.to_db_entry()).unwrap());
+            println!("{}", serde_json::to_string_pretty(&path.to_db_entry("".to_string())).unwrap());
         }
         return;
     }
 
     // Initialize DB connection and set up storage paths
     let mut conn = DB_POOL.get().expect("Failed to get connection from pool");
-    let raw_storage_dir = format!("{}/raws", env::var("STORAGE_ROOT").unwrap());
+    let raw_storage_dir = format!("{}/", env::var("STORAGE_ROOT").unwrap());
     let raw_storage_path = Path::new(&raw_storage_dir);
 
     // Iterate over all found paths
@@ -42,9 +42,8 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
             continue;
         }
 
-        // Prepare destination directory (`$STORAGE_ROOT/raws/yyyymm`), creating it if necessary
-        let date = path.get_photo_date();
-        let dest_directory = raw_storage_path.join(format!("{}{:02}", date.year(), date.month()));
+        // Prepare destination directory (`$STORAGE_ROOT/unfiled`), creating it if necessary
+        let dest_directory = raw_storage_path.join("unfiled");
         create_dir_all(&dest_directory).unwrap_or_else(|_| panic!("Failed to create directory {}", dest_directory.to_str().unwrap()));
 
         // Copy or move the image file to the storage location
@@ -66,10 +65,12 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
             }
         }
 
-        // Generate and store a JPEG thumbnail
-        let thumbnail_dir = format!("{}/thumbs/{}{:02}/", env::var("STORAGE_ROOT").unwrap(), date.year(), date.month());
+        // Generate and store a JPEG thumbnail at `THUMBNAIL_ROOT/yyyymm/FILENAME.jpeg`
+        let date = path.get_photo_date();
+        let thumbnail_dir = format!("{}/{}{:02}/", env::var("THUMBNAIL_ROOT").unwrap(), date.year(), date.month());
         let thumbnail_filename = format!("{}.jpeg", path.file_stem().unwrap().to_string_lossy());
         let mut thumbnail_path = format!("{thumbnail_dir}{thumbnail_filename}");
+        // Create Thumbnail
         match extract_thumbnail_full(new_path.to_str().unwrap(), &thumbnail_dir, &thumbnail_filename) {
             Ok(()) => println!("Thumbnail created at {thumbnail_path}"),
             Err(e) => {
@@ -79,8 +80,7 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
         }
 
         // Create a database record for the image
-        let mut photo = new_path.to_db_entry();
-        photo.thumbnail_path = thumbnail_path;
+        let photo = new_path.to_db_entry(thumbnail_path);
         println!("{}", serde_json::to_string_pretty(&photo).unwrap());
 
         println!("Adding {} to database", photo.file_path);
