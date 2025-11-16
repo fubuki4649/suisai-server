@@ -27,21 +27,30 @@ pub async fn start_webserver() {
     .expect("Failed to create CORS");
 
     // Start server with appropriate endpoints
-    rocket::build().attach(cors).mount("/api", routes![
+    rocket::build().attach(cors).mount("/", routes![
         // General
         health_check,
         
-        // Album webserver
+        // Album endpoints
         new_album,
         rename_album,
         del_album,
         all_albums,
+
+        // Album queries
+        album_photos,
+        album_albums,
+        unfiled_photos,
+
+        // Photo endpoints
         del_photo,
         get_photos,
         
-        // Photo-Album relation endpoints
-        unfile,
-        reassign,
+        // Photo/album management endpoints
+        unfile_photo,
+        reassign_photo,
+        unfile_album,
+        reassign_album,
         
         // Thumbnail serving endpoints
         get_thumbnail,

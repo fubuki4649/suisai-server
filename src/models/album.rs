@@ -1,4 +1,4 @@
-use crate::db::schema::{album_photo_join, albums};
+use crate::db::schema::{album_photo_join, album_album_join, albums};
 use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
 
@@ -46,6 +46,7 @@ pub struct NewAlbum {
     pub album_name: String,
 }
 
+
 /// The `AlbumPhoto` struct corresponds to the `album_photos` table, a join table between
 /// `Album` and `Photo` in the database.
 ///
@@ -55,4 +56,15 @@ pub struct NewAlbum {
 pub(crate) struct AlbumPhoto {
     pub parent_id: i32,
     pub photo_id: i64,
+}
+
+/// The `AlbumAlbum` struct corresponds to the `album_album` table, a join table between
+/// two `Album`s in the database.
+///
+/// It exists exclusively for internal use within `crate::db::operations`
+#[derive(Queryable, Selectable, Insertable, AsChangeset, Debug)]
+#[diesel(table_name = album_album_join)]
+pub(crate) struct AlbumAlbum {
+    pub parent_id: i32,
+    pub album_id: i32,
 }

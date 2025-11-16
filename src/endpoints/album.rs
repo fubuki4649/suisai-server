@@ -1,6 +1,6 @@
 use crate::_utils::json_map::JsonMap;
-use crate::db::operations::album::{create_album, delete_album, get_all_albums, update_album};
-use crate::db::operations::album_query::{get_photos_in_album, get_photos_unfiled};
+use crate::db::operations::album::{create_album, delete_album, get_root_albums, update_album};
+use crate::db::operations::query::{get_albums_in_album, get_photos_in_album, get_photos_unfiled};
 use crate::models::album::*;
 use crate::models::photo_http_api::ApiReturnPhoto;
 use crate::{unwrap_or_return, DB_POOL};
@@ -9,7 +9,6 @@ use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
-
 
 /// Creates a new album in the database
 ///
@@ -109,7 +108,7 @@ pub fn del_album(id: i32) -> Status {
 #[get("/album/all")]
 pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
-    let albums = unwrap_or_return!(get_all_albums(&mut conn), Err(Status::InternalServerError));
+    let albums = unwrap_or_return!(get_root_albums(&mut conn), Err(Status::InternalServerError));
     
     Ok(Json(albums))
 }
@@ -133,6 +132,27 @@ pub fn album_photos(id: i32) -> Result<Json<Vec<ApiReturnPhoto>>, Status> {
     let album_photos =  unwrap_or_return!(get_photos_in_album(&mut conn, id), Err(Status::InternalServerError));
     Ok(Json(album_photos.into_iter().map(ApiReturnPhoto::from).collect()))
 }
+
+
+/// Retrieves all subalbums linked to a given album
+///
+/// # Endpoint
+/// `GET /album/<id>/photos`
+///
+/// # Returns
+/// - `200 OK`: JSON array of unfiled photos
+/// - `500 Internal Server Error`: Database or another server error occurred
+///
+/// # Response Body
+/// Array of ApiReturnPhoto objects containing metadata for each photo in the album
+#[get("/album/<id>/albums")]
+pub fn album_albums(id: i32) -> Result<Json<Vec<Album>>, Status> {
+    let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
+
+    let album_albums =  unwrap_or_return!(get_albums_in_album(&mut conn, id), Err(Status::InternalServerError));
+    Ok(Json(album_albums))
+}
+
 
 /// Retrieves all photos that are not assigned to any album
 ///

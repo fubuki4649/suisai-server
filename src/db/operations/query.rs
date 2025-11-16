@@ -1,9 +1,13 @@
+use crate::db::schema::album_album_join::dsl as join_dsl;
+use crate::db::schema::albums::dsl as albums_dsl;
+use crate::db::schema::albums::dsl::albums;
 use crate::db::schema::{album_photo_join, photos};
+use crate::models::album::Album;
 use crate::models::photo::Photo;
 use diesel::prelude::*;
 use diesel::result::Error;
 
-/// Retrieves all photo IDs associated with the specified album
+/// Retrieves all photos associated with the specified album
 ///
 /// # Arguments
 /// * `conn` - Database connection pool
@@ -17,6 +21,22 @@ pub fn get_photos_in_album(conn: &mut MysqlConnection, album_id: i32) -> Result<
         .inner_join(photos::table)
         .select(photos::all_columns) // Select all fields from `photos`
         .load::<Photo>(conn)
+}
+
+/// Retrieves all subalbums associated with the specified album
+///
+/// # Arguments
+/// * `conn` - Database connection pool
+/// * `album_id` - ID of the album to get photos from
+///
+/// # Returns
+/// Vec of all subalbums belonging to the album, or error if query fails
+pub fn get_albums_in_album(conn: &mut MysqlConnection, album_id: i32) -> Result<Vec<Album>, Error> {
+    join_dsl::album_album_join
+        .filter(join_dsl::parent_id.eq(album_id))
+        .inner_join(albums.on(join_dsl::album_id.eq(albums_dsl::id)))
+        .select(albums::all_columns())
+        .load::<Album>(conn)
 }
 
 /// Gets all photos from the database that are not currently part of any album
