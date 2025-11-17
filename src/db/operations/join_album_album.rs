@@ -1,5 +1,5 @@
 use crate::db::schema::album_album_join;
-use crate::models::album::AlbumAlbum;
+use crate::models::db::join::AlbumAlbum;
 use diesel::insert_into;
 use diesel::mysql::MysqlConnection;
 use diesel::prelude::*;

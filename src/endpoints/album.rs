@@ -1,8 +1,9 @@
 use crate::_utils::json_map::JsonMap;
-use crate::db::operations::album::{create_album, delete_album, get_root_albums, update_album};
+use crate::db::operations::album::{create_album, delete_album, get_root_albums, rename_album as rename_album_db};
 use crate::db::operations::query::{get_albums_in_album, get_photos_in_album, get_photos_unfiled};
-use crate::models::album::*;
-use crate::models::photo_http_api::ApiReturnPhoto;
+use crate::models::db::album::{Album as DbAlbum, NewAlbum};
+use crate::models::webapi::album::Album;
+use crate::models::webapi::photo::Photo;
 use crate::{unwrap_or_return, DB_POOL};
 use anyhow::Result;
 use diesel::result::Error;
@@ -62,7 +63,7 @@ pub fn rename_album(id: i32, input: Json<Value>) -> Status {
     let album_name = unwrap_or_return!(input.get_value::<String>("album_name"), Status::BadRequest);
     let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
 
-    match update_album(&mut conn, Album {id, album_name}) {
+    match rename_album_db(&mut conn, DbAlbum {id, album_name}) {
         Ok(_) => Status::Ok,
         Err(Error::NotFound) => Status::NotFound,
         Err(_) => Status::InternalServerError,
@@ -110,7 +111,7 @@ pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
     let albums = unwrap_or_return!(get_root_albums(&mut conn), Err(Status::InternalServerError));
     
-    Ok(Json(albums))
+    Ok(Json(albums.into_iter().map(Album::from).collect()))
 }
 
 
@@ -124,13 +125,13 @@ pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
 /// - `500 Internal Server Error`: Database or another server error occurred
 ///
 /// # Response Body
-/// Array of ApiReturnPhoto objects containing metadata for each photo in the album
+/// Array of webapi::Photo objects containing metadata for each photo in the album
 #[get("/album/<id>/photos")]
-pub fn album_photos(id: i32) -> Result<Json<Vec<ApiReturnPhoto>>, Status> {
+pub fn album_photos(id: i32) -> Result<Json<Vec<Photo>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
     let album_photos =  unwrap_or_return!(get_photos_in_album(&mut conn, id), Err(Status::InternalServerError));
-    Ok(Json(album_photos.into_iter().map(ApiReturnPhoto::from).collect()))
+    Ok(Json(album_photos.into_iter().map(Photo::from).collect()))
 }
 
 
@@ -144,13 +145,13 @@ pub fn album_photos(id: i32) -> Result<Json<Vec<ApiReturnPhoto>>, Status> {
 /// - `500 Internal Server Error`: Database or another server error occurred
 ///
 /// # Response Body
-/// Array of ApiReturnPhoto objects containing metadata for each photo in the album
+/// Array of api::Album objects containing metadata for each photo in the album
 #[get("/album/<id>/albums")]
 pub fn album_albums(id: i32) -> Result<Json<Vec<Album>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
     let album_albums =  unwrap_or_return!(get_albums_in_album(&mut conn, id), Err(Status::InternalServerError));
-    Ok(Json(album_albums))
+    Ok(Json(album_albums.into_iter().map(Album::from).collect()))
 }
 
 
@@ -164,11 +165,11 @@ pub fn album_albums(id: i32) -> Result<Json<Vec<Album>>, Status> {
 /// - `500 Internal Server Error`: Database or another server error occurred
 ///
 /// # Response Body
-/// Array of ApiReturnPhoto objects containing metadata for each unfiled photo
+/// Array of webapi::Photo objects containing metadata for each unfiled photo
 #[get("/album/unfiled/photos")]
-pub fn unfiled_photos() -> Result<Json<Vec<ApiReturnPhoto>>, Status> {
+pub fn unfiled_photos() -> Result<Json<Vec<Photo>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
     let unfiled_photos =  unwrap_or_return!(get_photos_unfiled(&mut conn), Err(Status::InternalServerError));
-    Ok(Json(unfiled_photos.into_iter().map(ApiReturnPhoto::from).collect()))
+    Ok(Json(unfiled_photos.into_iter().map(Photo::from).collect()))
 }

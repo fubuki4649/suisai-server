@@ -23,3 +23,10 @@ Then, install the Diesel CLI and run migrations to create the necessary tables a
 
     cargo install diesel_cli --no-default-features --features mysql
     diesel migration run
+
+## Development
+
+To regenerate the schema after running migrations,
+
+    diesel print-schema > src/db/schema.rs
+

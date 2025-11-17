@@ -1,3 +1,2 @@
-pub mod photo;
-pub mod album;
-pub mod photo_http_api;
+pub mod db;
+pub mod webapi;

@@ -1,7 +1,7 @@
 use crate::db::schema::album_album_join;
 use crate::db::schema::albums::dsl as albums_dsl;
 use crate::db::schema::albums::dsl::albums;
-use crate::models::album::{Album, NewAlbum};
+use crate::models::db::album::{Album, NewAlbum};
 use diesel::associations::HasTable;
 use diesel::insert_into;
 use diesel::prelude::*;
@@ -41,7 +41,7 @@ pub fn get_root_albums(conn: &mut MysqlConnection) -> Result<Vec<Album>, Error> 
         .load(conn)
 }
 
-/// Updates an existing album's fields in the database based on the provided album's `id`
+/// Updates an existing album's name in the database based on the provided album's `id`
 ///
 /// # Arguments
 /// * `conn` - Database connection
@@ -49,9 +49,9 @@ pub fn get_root_albums(conn: &mut MysqlConnection) -> Result<Vec<Album>, Error> 
 ///
 /// # Returns
 /// The number of rows affected (1 if successful, 0 if failed).
-pub fn update_album(conn: &mut MysqlConnection, album: Album) -> Result<usize, Error> {
+pub fn rename_album(conn: &mut MysqlConnection, album: Album) -> Result<usize, Error> {
     diesel::update(albums.find(album.id))
-        .set::<Album>(album)
+        .set(albums_dsl::album_name.eq(album.album_name))
         .execute(conn)
 }
 

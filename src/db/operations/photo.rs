@@ -1,9 +1,10 @@
-use crate::models::photo::{NewPhoto, Photo};
-use crate::db::schema::photos::dsl::{photos, id};
+use crate::db::schema::photos::dsl::{id, photos};
+use crate::models::db::photo::{NewPhoto, Photo};
 use diesel::insert_into;
+use diesel::mysql::MysqlConnection;
 use diesel::prelude::*;
 use diesel::result::Error;
-use diesel::mysql::MysqlConnection;
+use crate::db::operations::thumbnail::delete_thumbnail;
 
 /// Creates a new photo entry in the database with associated metadata fields
 ///
@@ -12,13 +13,16 @@ use diesel::mysql::MysqlConnection;
 /// * `new_photo` - Photo details and metadata for creation
 ///
 /// # Returns
-/// Ok(()) if successful, or error if the insert fails
-pub fn create_photo(conn: &mut MysqlConnection, new_photo: NewPhoto) -> Result<(), Error> {
+/// Ok(id) if successful with the ID of the new photo, or error if the insert fails
+pub fn create_photo(conn: &mut MysqlConnection, new_photo: NewPhoto) -> Result<i64, Error> {
     // Insert the new photo
     insert_into(photos)
         .values(&new_photo)
-        .execute(conn)
-        .map(|_| ())
+        .execute(conn)?;
+
+    // Get the last inserted ID
+    diesel::select(diesel::dsl::sql::<diesel::sql_types::BigInt>("LAST_INSERT_ID()"))
+        .get_result(conn)
 }
 
 /// Checks if a photo with the given hash value already exists in the database
@@ -77,6 +81,9 @@ pub fn delete_photo(conn: &mut MysqlConnection, photo_ids: &[i64]) -> Result<Vec
     // Then delete them
     diesel::delete(photos.filter(id.eq_any(photo_ids)))
         .execute(conn)?;
+
+    // Also delete associated thumbnails
+    delete_thumbnail(conn, photo_ids)?;
 
     Ok(deleted)
 }

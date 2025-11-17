@@ -8,7 +8,8 @@ use rocket::serde::json::serde_json;
 use std::env;
 use std::fs::{copy, create_dir_all, rename};
 use std::path::Path;
-
+use crate::db::operations::thumbnail::create_thumbnail;
+use crate::models::db::thumbnail::Thumbnail;
 
 /// Ingests images from a directory into the photo library, including database storage and thumbnail generation
 pub fn ingest(path: String, dry: bool, no_preserve: bool) {
@@ -23,7 +24,7 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
     // In dry run mode, just print what would happen without making changes
     if dry {
         for path in paths {
-            println!("{}", serde_json::to_string_pretty(&path.to_db_entry("".to_string())).unwrap());
+            println!("{}", serde_json::to_string_pretty(&path.to_db_entry()).unwrap());
         }
         return;
     }
@@ -80,15 +81,27 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
         }
 
         // Create a database record for the image
-        let photo = new_path.to_db_entry(thumbnail_path);
+        let photo = new_path.to_db_entry();
         println!("{}", serde_json::to_string_pretty(&photo).unwrap());
 
-        println!("Adding {} to database", photo.file_path);
-        match create_photo(&mut conn, photo) {
-            Err(e) => println!("Error: {e}"),
-            _ => println!("Success")
+        println!("Adding {} to database", photo.file_name);
+        let photo_id = match create_photo(&mut conn, photo) {
+            Err(e) => {
+                println!("Error: {e}");
+                return;
+            },
+            Ok(id) => id
+        };
+
+        // Create a database record for the thumbnail, if any
+        if !thumbnail_path.is_empty() {
+            let thumbnail = Thumbnail { id: photo_id, thumbnail_path };
+            create_thumbnail(&mut conn, &thumbnail).unwrap_or_else(|e| println!("Error: {e}"));
         }
+
+        println!("Done");
+
     }
 
-    println!("Done");
+    println!("Finished");
 }

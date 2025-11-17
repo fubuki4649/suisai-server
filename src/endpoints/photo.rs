@@ -1,12 +1,14 @@
 use crate::_utils::json_map::JsonMap;
+use crate::db::operations::paths::get_photo_path;
 use crate::db::operations::photo::{delete_photo, get_photo};
-use crate::models::photo_http_api::ApiReturnPhoto;
+use crate::models::webapi::photo::Photo;
 use crate::{unwrap_or_return, DB_POOL};
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, post};
 use std::fs;
-
+use std::path::PathBuf;
+use crate::db::operations::thumbnail::get_thumbnail;
 
 /// Delete multiple photos from the database by their IDs
 ///
@@ -31,8 +33,14 @@ pub fn del_photo(input: Json<Value>) -> Status {
     
     // Delete photos & thumbnail from hard drive, ignore nonexistent/permission errors
     for photo in deleted {
-        let _ = fs::remove_file(photo.file_path);
-        let _ = fs::remove_file(photo.thumbnail_path);
+        let storage_root = std::env::var("STORAGE_ROOT").unwrap();
+        let photo_path = unwrap_or_return!(get_photo_path(&mut conn, photo.id), Status::InternalServerError);
+
+        let thumbnail_root = std::env::var("THUMBNAIL_ROOT").unwrap();
+        let thumb = unwrap_or_return!(get_thumbnail(&mut conn, photo.id), Status::InternalServerError);
+
+        let _ = fs::remove_file(PathBuf::from(storage_root).join(photo_path));
+        let _ = fs::remove_file(PathBuf::from(thumbnail_root).join(thumb.thumbnail_path));
     }
     
     Status::Ok
@@ -53,10 +61,10 @@ pub fn del_photo(input: Json<Value>) -> Status {
 ///   (skips any IDs that don't exist)
 /// - `Status::InternalServerError` (500) if retrieval fails
 #[post("/photo/get", format = "json", data = "<input>")]
-pub fn get_photos(input: Json<Value>) -> Result<Json<Vec<ApiReturnPhoto>>, Status> {
+pub fn get_photos(input: Json<Value>) -> Result<Json<Vec<Photo>>, Status> {
     let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Err(Status::BadRequest));
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
     let photos = unwrap_or_return!(get_photo(&mut conn, &photo_ids), Err(Status::InternalServerError));
-    Ok(Json(photos.into_iter().map(ApiReturnPhoto::from).collect()))
+    Ok(Json(photos.into_iter().map(Photo::from).collect()))
 }

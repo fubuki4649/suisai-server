@@ -1,12 +1,11 @@
 use crate::_utils::run_command::ShellReturn;
-use crate::models::photo::NewPhoto;
+use crate::models::db::photo::NewPhoto;
 use crate::sh;
 use chrono::NaiveDateTime;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use xxhash_rust::xxh3::xxh3_128;
-
 
 /// A trait providing methods to extract metadata from an image file path
 /// and convert it into a database-compatible format.
@@ -62,7 +61,7 @@ pub trait SuisaiImagePath {
     fn get_aperture(&self) -> f32;
 
     /// Returns a `crate::db::models::NewPhoto`. Does not populate the `thumbnail` field
-    fn to_db_entry(&self, thumbnail_path: String) -> NewPhoto;
+    fn to_db_entry(&self) -> NewPhoto;
 }
 
 impl SuisaiImagePath for PathBuf {
@@ -223,12 +222,10 @@ impl SuisaiImagePath for PathBuf {
         }
     }
 
-    fn to_db_entry(&self, thumbnail_path: String) -> NewPhoto {
+    fn to_db_entry(&self) -> NewPhoto {
         NewPhoto {
-            thumbnail_path,
             hash: self.get_hash(),
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
-            file_path: self.to_string_lossy().to_string(),
             size_on_disk: self.get_size_on_disk(),
             photo_date: self.get_photo_date(),
             photo_timezone: self.get_photo_timezone(),

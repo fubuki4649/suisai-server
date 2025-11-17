@@ -1,4 +1,5 @@
 use crate::db::operations::photo::check_hash;
+use crate::db::operations::thumbnail::get_thumbnail as get_thumbs;
 use crate::{unwrap_or_return, DB_POOL};
 use rocket::fs::NamedFile;
 use rocket::get;
@@ -19,7 +20,10 @@ pub async fn get_thumbnail(hash: &str) -> Result<NamedFile, Status> {
     let photo = unwrap_or_return!(check_hash(&mut conn, hash), Err(Status::InternalServerError));
 
     match photo {
-        Some(photo) => Ok(unwrap_or_return!(NamedFile::open(photo.thumbnail_path).await, Err(Status::InternalServerError))),
+        Some(photo) => {
+            let thumb = unwrap_or_return!(get_thumbs(&mut conn, photo.id), Err(Status::InternalServerError));
+            Ok(unwrap_or_return!(NamedFile::open(thumb.thumbnail_path).await, Err(Status::InternalServerError)))
+        },
         None => Err(Status::NotFound),
     }
 }

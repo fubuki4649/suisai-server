@@ -13,6 +13,7 @@ mod ingest;
 mod _utils;
 mod preflight;
 mod models;
+mod fs_operations;
 
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
