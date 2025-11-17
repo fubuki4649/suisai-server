@@ -1,15 +1,14 @@
 use crate::_utils::json_map::JsonMap;
 use crate::db::operations::paths::get_photo_path;
 use crate::db::operations::photo::{delete_photo, get_photo};
+use crate::db::operations::thumbnail::get_thumbnail;
+use crate::fs_operations::photo::delete_photo_fs;
 use crate::models::webapi::photo::Photo;
 use crate::{unwrap_or_return, DB_POOL};
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, post};
-use std::fs;
 use std::path::PathBuf;
-use crate::db::operations::thumbnail::get_thumbnail;
-use crate::fs_operations::photo::delete_photo_fs;
 
 /// Delete multiple photos from the database by their IDs
 ///

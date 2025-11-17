@@ -1,10 +1,10 @@
+use crate::db::operations::thumbnail::delete_thumbnail;
 use crate::db::schema::photos::dsl::{id, photos};
 use crate::models::db::photo::{NewPhoto, Photo};
 use diesel::insert_into;
 use diesel::mysql::MysqlConnection;
 use diesel::prelude::*;
 use diesel::result::Error;
-use crate::db::operations::thumbnail::delete_thumbnail;
 
 /// Creates a new photo entry in the database with associated metadata fields
 ///

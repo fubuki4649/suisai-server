@@ -1,8 +1,8 @@
+use crate::models::db::album::Album;
+use crate::models::db::photo::Photo;
 use std::fs;
 use std::io::Error;
 use std::path::{Path, PathBuf};
-use crate::models::db::album::Album;
-use crate::models::db::photo::Photo;
 
 /// Deletes an album, moving its children to the root (albums) / unfiled (photos).
 ///

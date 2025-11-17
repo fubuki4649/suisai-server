@@ -1,9 +1,9 @@
-use crate::preflight::check_directories;
 use crate::endpoints::album::*;
 use crate::endpoints::management::*;
 use crate::endpoints::meow::health_check;
 use crate::endpoints::photo::*;
 use crate::endpoints::thumbnail::get_thumbnail;
+use crate::preflight::check_directories;
 use rocket::routes;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::str::FromStr;

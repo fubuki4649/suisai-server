@@ -1,6 +1,8 @@
 use crate::_utils::json_map::JsonMap;
 use crate::db::operations::album::{create_album, delete_album, get_root_albums, rename_album as rename_album_db};
+use crate::db::operations::paths::get_album_path;
 use crate::db::operations::query::{get_albums_in_album, get_photos_in_album, get_photos_unfiled};
+use crate::fs_operations::album::delete_album_fs;
 use crate::models::db::album::{Album as DbAlbum, NewAlbum};
 use crate::models::webapi::album::Album;
 use crate::models::webapi::photo::Photo;
@@ -10,8 +12,6 @@ use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
-use crate::db::operations::paths::get_album_path;
-use crate::fs_operations::album::delete_album_fs;
 
 /// Creates a new album in the database
 ///

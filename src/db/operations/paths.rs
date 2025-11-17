@@ -1,6 +1,6 @@
 use diesel::prelude::*;
-use diesel::MysqlConnection;
 use diesel::result::Error;
+use diesel::MysqlConnection;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
