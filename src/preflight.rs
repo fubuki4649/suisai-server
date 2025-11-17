@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::PathBuf;
 
 
 /// Checks and creates required directory structure for the application.
@@ -13,18 +13,17 @@ use std::path::Path;
 /// Creates any missing directories as needed. Returns error if `$STORAGE_ROOT` is not set
 /// or if expected paths exist but are not directories.
 pub fn check_directories() -> Result<(), anyhow::Error> {
-    let storage_root = env::var("STORAGE_ROOT").map_err(|_| anyhow::anyhow!("$STORAGE_ROOT not set"))?;
-    let thumbnail_root = env::var("THUMBNAIL_ROOT").map_err(|_| anyhow::anyhow!("THUMBNAIL_ROOT not set"))?;
+    let storage_root = PathBuf::from(env::var("STORAGE_ROOT").map_err(|_| anyhow::anyhow!("$STORAGE_ROOT not set"))?);
+    let thumbnail_root = PathBuf::from(env::var("THUMBNAIL_ROOT").map_err(|_| anyhow::anyhow!("THUMBNAIL_ROOT not set"))?);
 
     // Check if `$STORAGE_ROOT`, `$STORAGE_ROOT/thumbs` and `$STORAGE_ROOT/raws`, 
     // and `$STORAGE_ROOT/associated_files` exist as directories.
     let paths = [
-        storage_root,
+        storage_root.join("unfiled"),
         thumbnail_root,
     ];
 
     for path in paths {
-        let path = Path::new(&path);
         if path.exists() {
             if path.is_dir() {
                 println!("Found existing directory: {}", path.display());
@@ -32,7 +31,7 @@ pub fn check_directories() -> Result<(), anyhow::Error> {
                 return Err(anyhow::anyhow!("{} exists but is not a directory", path.display()));
             }
         } else {
-            fs::create_dir_all(path)?;
+            fs::create_dir_all(&path)?;
             println!("Created new directory: {}", path.display());
         }
     }

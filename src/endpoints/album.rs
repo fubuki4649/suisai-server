@@ -10,6 +10,8 @@ use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
+use crate::db::operations::paths::get_album_path;
+use crate::fs_operations::album::delete_album_fs;
 
 /// Creates a new album in the database
 ///
@@ -86,10 +88,20 @@ pub fn rename_album(id: i32, input: Json<Value>) -> Status {
 pub fn del_album(id: i32) -> Status {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
 
+    // Delete album from DB
     match delete_album(&mut conn, id) {
-        Ok(_) => Status::Ok,
         Err(Error::NotFound) => Status::NotFound,
         Err(_) => Status::InternalServerError,
+        Ok(album) => {
+            // Delete album from filesystem, moving its children to root
+            let album_path = unwrap_or_return!(get_album_path(&mut conn, album.id), Status::InternalServerError);
+            let child_photos = unwrap_or_return!(get_photos_in_album(&mut conn, album.id), Status::InternalServerError);
+            let child_albums = unwrap_or_return!(get_albums_in_album(&mut conn, album.id), Status::InternalServerError);
+
+            unwrap_or_return!(delete_album_fs(album_path, &child_photos, &child_albums), Status::InternalServerError);
+
+            Status::Ok
+        },
     }
 }
 

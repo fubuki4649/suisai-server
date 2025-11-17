@@ -9,6 +9,7 @@ use rocket::{delete, post};
 use std::fs;
 use std::path::PathBuf;
 use crate::db::operations::thumbnail::get_thumbnail;
+use crate::fs_operations::photo::delete_photo_fs;
 
 /// Delete multiple photos from the database by their IDs
 ///
@@ -33,14 +34,10 @@ pub fn del_photo(input: Json<Value>) -> Status {
     
     // Delete photos & thumbnail from hard drive, ignore nonexistent/permission errors
     for photo in deleted {
-        let storage_root = std::env::var("STORAGE_ROOT").unwrap();
         let photo_path = unwrap_or_return!(get_photo_path(&mut conn, photo.id), Status::InternalServerError);
+        let thumb_path = unwrap_or_return!(get_thumbnail(&mut conn, photo.id), Status::InternalServerError).thumbnail_path;
 
-        let thumbnail_root = std::env::var("THUMBNAIL_ROOT").unwrap();
-        let thumb = unwrap_or_return!(get_thumbnail(&mut conn, photo.id), Status::InternalServerError);
-
-        let _ = fs::remove_file(PathBuf::from(storage_root).join(photo_path));
-        let _ = fs::remove_file(PathBuf::from(thumbnail_root).join(thumb.thumbnail_path));
+        unwrap_or_return!(delete_photo_fs(photo_path, PathBuf::from(thumb_path)), Status::InternalServerError);
     }
     
     Status::Ok

@@ -1,6 +1,6 @@
-use clap::{error::ErrorKind, Error};
 use diesel::prelude::*;
 use diesel::MysqlConnection;
+use diesel::result::Error;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -13,10 +13,8 @@ use crate::db::schema::{album_album_join, album_photo_join, albums, photos};
 /// * `album_id` - ID of the album to get path for
 ///
 /// # Returns
-/// The path of the album
+/// The path of the album; Returns `diesel::result::Error::NotFound` if a cyclical path is detected
 pub fn get_album_path(conn: &mut MysqlConnection, album_id: i32) -> Result<PathBuf, Error> {
-    // Helper to map Diesel errors into clap::Error consistently
-    let map_err = |e: diesel::result::Error| Error::raw(ErrorKind::InvalidValue, e.to_string());
 
     // Collect the chain of album names from the current album up to root
     let mut segments: Vec<String> = Vec::new();
@@ -24,19 +22,16 @@ pub fn get_album_path(conn: &mut MysqlConnection, album_id: i32) -> Result<PathB
     let mut seen: HashSet<i32> = HashSet::new();
 
     while let Some(aid) = current_id {
+        // Check for cycles (shouldn't happen, but just in case)
         if !seen.insert(aid) {
-            return Err(Error::raw(
-                ErrorKind::InvalidValue,
-                format!("Cycle detected in album hierarchy at album_id={}", aid),
-            ));
+            return Err(Error::NotFound);
         }
 
         // Fetch the album_name for this album id
         let name: String = albums::table
             .find(aid)
             .select(albums::album_name)
-            .first::<String>(conn)
-            .map_err(map_err)?;
+            .first::<String>(conn)?;
         segments.push(name);
 
         // Find parent album, if any. If multiple parents exist, choose the one with the lowest parent_id for determinism.
@@ -45,8 +40,7 @@ pub fn get_album_path(conn: &mut MysqlConnection, album_id: i32) -> Result<PathB
             .select(album_album_join::parent_id)
             .order(album_album_join::parent_id.asc())
             .first::<i32>(conn)
-            .optional()
-            .map_err(map_err)?;
+            .optional()?;
 
         current_id = parent;
     }
@@ -70,23 +64,20 @@ pub fn get_album_path(conn: &mut MysqlConnection, album_id: i32) -> Result<PathB
 /// # Returns
 /// The path of the photo
 pub fn get_photo_path(conn: &mut MysqlConnection, photo_id: i64) -> Result<PathBuf, Error> {
-    let map_err = |e: diesel::result::Error| Error::raw(ErrorKind::InvalidValue, e.to_string());
 
     // Get the photo file name (and confirm the photo exists)
     let file_name: String = photos::table
-        .find(photo_id as i64)
+        .find(photo_id)
         .select(photos::file_name)
-        .first::<String>(conn)
-        .map_err(map_err)?;
+        .first::<String>(conn)?;
 
     // Resolve a parent album if any
     let parent_album: Option<i32> = album_photo_join::table
-        .filter(album_photo_join::photo_id.eq(photo_id as i64))
+        .filter(album_photo_join::photo_id.eq(photo_id))
         .select(album_photo_join::parent_id)
         .order(album_photo_join::parent_id.asc())
         .first::<i32>(conn)
-        .optional()
-        .map_err(map_err)?;
+        .optional()?;
 
     let mut path = match parent_album {
         Some(album_id) => get_album_path(conn, album_id)?,

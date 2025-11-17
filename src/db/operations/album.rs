@@ -62,8 +62,13 @@ pub fn rename_album(conn: &mut MysqlConnection, album: Album) -> Result<usize, E
 /// * `album_id` - ID of the album to delete
 ///
 /// # Returns
-/// Number of rows affected (1 if successful, 0 if album not found)
-pub fn delete_album(conn: &mut MysqlConnection, album_id: i32) -> Result<usize, Error> {
-    diesel::delete(albums.find(album_id))
-        .execute(conn)
+/// The deleted `Album` if found, or an error if the album doesn't exist
+pub fn delete_album(conn: &mut MysqlConnection, album_id: i32) -> Result<Album, Error> {
+    // First fetch the album
+    let album = albums.find(album_id).first::<Album>(conn)?;
+
+    // Then delete it
+    diesel::delete(albums.find(album_id)).execute(conn)?;
+
+    Ok(album)
 }
