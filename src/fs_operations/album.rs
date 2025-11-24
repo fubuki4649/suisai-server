@@ -1,6 +1,6 @@
 use crate::fs_operations::photo::move_photo_fs;
-use crate::models::db::album::Album;
-use crate::models::db::photo::Photo;
+use crate::models::album::Album;
+use crate::models::photo::Photo;
 use std::fs;
 use std::io::Error;
 use std::path::{Path, PathBuf};

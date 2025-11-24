@@ -1,5 +1,5 @@
 use crate::db::schema::thumbnails::dsl::{id, thumbnail_path, thumbnails};
-use crate::models::db::thumbnail::Thumbnail;
+use crate::models::thumbnail::Thumbnail;
 use diesel::insert_into;
 use diesel::prelude::*;
 use diesel::result::Error;

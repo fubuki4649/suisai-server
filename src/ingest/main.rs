@@ -3,7 +3,7 @@ use crate::db::operations::thumbnail::create_thumbnail;
 use crate::ingest::extract_thumbnail::extract_thumbnail_full;
 use crate::ingest::get_image_paths::get_image_paths;
 use crate::ingest::trait_suisai_image_path::SuisaiImagePath;
-use crate::models::db::thumbnail::Thumbnail;
+use crate::models::thumbnail::Thumbnail;
 use crate::DB_POOL;
 use chrono::Datelike;
 use rocket::serde::json::serde_json;

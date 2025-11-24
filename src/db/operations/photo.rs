@@ -1,6 +1,6 @@
 use crate::db::operations::thumbnail::delete_thumbnail;
 use crate::db::schema::photos::dsl::{id, photos};
-use crate::models::db::photo::{NewPhoto, Photo};
+use crate::models::photo::{NewPhoto, Photo};
 use diesel::insert_into;
 use diesel::mysql::MysqlConnection;
 use diesel::prelude::*;

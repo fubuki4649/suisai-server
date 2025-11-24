@@ -3,9 +3,8 @@ use crate::db::operations::album::{create_album, delete_album, get_root_albums, 
 use crate::db::operations::paths::get_album_path;
 use crate::db::operations::query::{get_albums_in_album, get_photos_in_album, get_photos_unfiled};
 use crate::fs_operations::album::delete_album_fs;
-use crate::models::db::album::{Album as DbAlbum, NewAlbum};
-use crate::models::webapi::album::Album;
-use crate::models::webapi::photo::Photo;
+use crate::models::album::{Album, NewAlbum};
+use crate::models::photo::Photo;
 use crate::{unwrap_or_return, DB_POOL};
 use anyhow::Result;
 use diesel::result::Error;
@@ -65,7 +64,7 @@ pub fn rename_album(id: i32, input: Json<Value>) -> Status {
     let album_name = unwrap_or_return!(input.get_value::<String>("album_name"), Status::BadRequest);
     let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
 
-    match rename_album_db(&mut conn, DbAlbum {id, album_name}) {
+    match rename_album_db(&mut conn, Album {id, album_name}) {
         Ok(_) => Status::Ok,
         Err(Error::NotFound) => Status::NotFound,
         Err(_) => Status::InternalServerError,
@@ -123,7 +122,7 @@ pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
     let albums = unwrap_or_return!(get_root_albums(&mut conn), Err(Status::InternalServerError));
     
-    Ok(Json(albums.into_iter().map(Album::from).collect()))
+    Ok(Json(albums))
 }
 
 
@@ -143,7 +142,7 @@ pub fn album_photos(id: i32) -> Result<Json<Vec<Photo>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
     let album_photos =  unwrap_or_return!(get_photos_in_album(&mut conn, id), Err(Status::InternalServerError));
-    Ok(Json(album_photos.into_iter().map(Photo::from).collect()))
+    Ok(Json(album_photos))
 }
 
 
@@ -163,7 +162,7 @@ pub fn album_albums(id: i32) -> Result<Json<Vec<Album>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
     let album_albums =  unwrap_or_return!(get_albums_in_album(&mut conn, id), Err(Status::InternalServerError));
-    Ok(Json(album_albums.into_iter().map(Album::from).collect()))
+    Ok(Json(album_albums))
 }
 
 
@@ -183,5 +182,5 @@ pub fn unfiled_photos() -> Result<Json<Vec<Photo>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
     let unfiled_photos =  unwrap_or_return!(get_photos_unfiled(&mut conn), Err(Status::InternalServerError));
-    Ok(Json(unfiled_photos.into_iter().map(Photo::from).collect()))
+    Ok(Json(unfiled_photos))
 }

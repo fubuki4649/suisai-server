@@ -3,7 +3,7 @@ use crate::db::operations::paths::get_photo_path;
 use crate::db::operations::photo::{delete_photo, get_photo};
 use crate::db::operations::thumbnail::get_thumbnail;
 use crate::fs_operations::photo::delete_photo_fs;
-use crate::models::webapi::photo::Photo;
+use crate::models::photo::Photo;
 use crate::{unwrap_or_return, DB_POOL};
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
@@ -62,5 +62,5 @@ pub fn get_photos(input: Json<Value>) -> Result<Json<Vec<Photo>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
 
     let photos = unwrap_or_return!(get_photo(&mut conn, &photo_ids), Err(Status::InternalServerError));
-    Ok(Json(photos.into_iter().map(Photo::from).collect()))
+    Ok(Json(photos))
 }

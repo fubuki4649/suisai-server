@@ -2,7 +2,7 @@ use crate::db::schema::album_album_join;
 use crate::db::schema::album_photo_join;
 use crate::db::schema::albums::dsl as albums_dsl;
 use crate::db::schema::albums::dsl::albums;
-use crate::models::db::album::{Album, NewAlbum};
+use crate::models::album::{Album, NewAlbum};
 use diesel::associations::HasTable;
 use diesel::insert_into;
 use diesel::prelude::*;

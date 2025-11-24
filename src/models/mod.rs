@@ -1,2 +1,4 @@
-pub mod db;
-pub mod webapi;
+pub mod photo;
+pub mod album;
+pub mod join;
+pub mod thumbnail;

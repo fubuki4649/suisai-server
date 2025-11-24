@@ -1,10 +1,10 @@
+use crate::db::schema::{album_album_join, album_photo_join, albums, photos};
 use diesel::prelude::*;
+use diesel::result::Error::DatabaseError;
 use diesel::result::{DatabaseErrorKind, Error};
 use diesel::MysqlConnection;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use diesel::result::Error::DatabaseError;
-use crate::db::schema::{album_album_join, album_photo_join, albums, photos};
 
 /// Gets an album's path, relative to $STORAGE_ROOT
 ///

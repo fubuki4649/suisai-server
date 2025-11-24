@@ -2,8 +2,8 @@ use crate::db::schema::album_album_join::dsl as join_dsl;
 use crate::db::schema::albums::dsl as albums_dsl;
 use crate::db::schema::albums::dsl::albums;
 use crate::db::schema::{album_photo_join, photos};
-use crate::models::db::album::Album;
-use crate::models::db::photo::Photo;
+use crate::models::album::Album;
+use crate::models::photo::Photo;
 use diesel::prelude::*;
 use diesel::result::Error;
 
