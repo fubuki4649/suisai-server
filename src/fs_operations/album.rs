@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 /// Ok if the album was deleted successfully and its children moved, or an error if deletion failed.
 pub fn delete_album_fs(album_path: &Path, child_photos: &[Photo], child_albums: &[Album]) -> Result<(), Error> {
     let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
-    let full_album_path = storage_root.join(&album_path);
+    let full_album_path = storage_root.join(album_path);
 
     // Move child photos to the unfiled directory
     for photo in child_photos {
@@ -53,8 +53,8 @@ pub fn delete_album_fs(album_path: &Path, child_photos: &[Photo], child_albums: 
 /// Ok if successful, or Error if validation fails or filesystem operation fails.
 pub fn move_album_fs(album_path: &Path, destination_path: &Path) -> Result<(), Error> {
     let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
-    let src_path = storage_root.join(&album_path);
-    let dest_path = storage_root.join(&destination_path);
+    let src_path = storage_root.join(album_path);
+    let dest_path = storage_root.join(destination_path);
 
     // Make sure the source and destination albums exist
     if !src_path.exists() {

@@ -82,13 +82,12 @@ impl SuisaiImagePath for PathBuf {
     fn get_photo_date(&self) -> NaiveDateTime {
         let result: ShellReturn = sh!("exiftool -DateTimeOriginal -fast2 -s3 {}", self.to_string_lossy());
 
-        if result.err_code == 0 {
-            if let Ok(ndt) = NaiveDateTime::parse_from_str(result.stdout.trim(), "%Y:%m:%d %H:%M:%S") {
-                return ndt;
-            }
+        if result.err_code == 0 && let Ok(ndt) = NaiveDateTime::parse_from_str(result.stdout.trim(), "%Y:%m:%d %H:%M:%S") {
+            return ndt;
         }
 
-        NaiveDateTime::from_timestamp(0, 0)
+        #[allow(deprecated)]
+        NaiveDateTime::UNIX_EPOCH
     }
 
     fn get_photo_timezone(&self) -> String {
@@ -168,12 +167,8 @@ impl SuisaiImagePath for PathBuf {
         for tag in tags {
             let result = sh!("exiftool -s3 -fast1 -{} {}", tag, self.to_string_lossy());
 
-            if result.err_code == 0 {
-                if let Ok(count) = result.stdout.trim().parse::<i32>() {
-                    if count != 0 {
-                        return count;
-                    }
-                }
+            if result.err_code == 0 && let Ok(count) = result.stdout.trim().parse::<i32>() && count != 0 {
+                return count;
             }
         }
         
