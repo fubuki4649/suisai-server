@@ -1,4 +1,5 @@
 use crate::db::schema::album_album_join;
+use crate::db::schema::album_photo_join;
 use crate::db::schema::albums::dsl as albums_dsl;
 use crate::db::schema::albums::dsl::albums;
 use crate::models::db::album::{Album, NewAlbum};
@@ -53,6 +54,36 @@ pub fn rename_album(conn: &mut MysqlConnection, album: Album) -> Result<usize, E
     diesel::update(albums.find(album.id))
         .set(albums_dsl::album_name.eq(album.album_name))
         .execute(conn)
+}
+
+/// Gets albums by their IDs
+///
+/// # Arguments
+/// * `conn` - Database connection
+/// * `album_ids` - List of album IDs to retrieve
+///
+/// # Returns
+/// Vector of albums matching the provided IDs, or an error if query fails
+pub fn get_album(conn: &mut MysqlConnection, album_ids: &[i32]) -> Result<Vec<Album>, Error> {
+    albums
+        .filter(albums_dsl::id.eq_any(album_ids))
+        .load::<Album>(conn)
+}
+
+/// Gets the album that contains the specified photo
+///
+/// # Arguments
+/// * `conn` - Database connection
+/// * `photo_id` - ID of the photo to find the album for
+///
+/// # Returns
+/// The album containing the photo, or an error if not found
+pub fn get_album_by_photo(conn: &mut MysqlConnection, photo_id: i64) -> Result<Album, Error> {
+    albums
+        .inner_join(album_photo_join::table.on(album_photo_join::parent_id.eq(albums_dsl::id)))
+        .filter(album_photo_join::photo_id.eq(photo_id))
+        .select(Album::as_select())
+        .first(conn)
 }
 
 /// Deletes the specified album from the database

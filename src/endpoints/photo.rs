@@ -31,12 +31,12 @@ pub fn del_photo(input: Json<Value>) -> Status {
     // Delete photos from DB
     let deleted = unwrap_or_return!(delete_photo(&mut conn, &photo_ids), Status::InternalServerError);
     
-    // Delete photos & thumbnail from hard drive, ignore nonexistent/permission errors
+    // Also delete photos & thumbnail from filesystem, and ignore nonexistent/permission errors
     for photo in deleted {
         let photo_path = unwrap_or_return!(get_photo_path(&mut conn, photo.id), Status::InternalServerError);
         let thumb_path = unwrap_or_return!(get_thumbnail(&mut conn, photo.id), Status::InternalServerError).thumbnail_path;
 
-        unwrap_or_return!(delete_photo_fs(photo_path, PathBuf::from(thumb_path)), Status::InternalServerError);
+        unwrap_or_return!(delete_photo_fs(&photo_path, &PathBuf::from(thumb_path)), Status::InternalServerError);
     }
     
     Status::Ok

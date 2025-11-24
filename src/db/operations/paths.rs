@@ -1,9 +1,9 @@
 use diesel::prelude::*;
-use diesel::result::Error;
+use diesel::result::{DatabaseErrorKind, Error};
 use diesel::MysqlConnection;
 use std::collections::HashSet;
 use std::path::PathBuf;
-
+use diesel::result::Error::DatabaseError;
 use crate::db::schema::{album_album_join, album_photo_join, albums, photos};
 
 /// Gets an album's path, relative to $STORAGE_ROOT
@@ -13,7 +13,7 @@ use crate::db::schema::{album_album_join, album_photo_join, albums, photos};
 /// * `album_id` - ID of the album to get path for
 ///
 /// # Returns
-/// The path of the album; Returns `diesel::result::Error::NotFound` if a cyclical path is detected
+/// The path of the album; Returns `diesel::result::Error::Unknown` if a cyclical path is detected
 pub fn get_album_path(conn: &mut MysqlConnection, album_id: i32) -> Result<PathBuf, Error> {
 
     // Collect the chain of album names from the current album up to root
@@ -24,7 +24,7 @@ pub fn get_album_path(conn: &mut MysqlConnection, album_id: i32) -> Result<PathB
     while let Some(aid) = current_id {
         // Check for cycles (shouldn't happen, but just in case)
         if !seen.insert(aid) {
-            return Err(Error::NotFound);
+            return Err(DatabaseError(DatabaseErrorKind::Unknown, Box::new("A cycle is detected in the album relation table. This should never happen unless the table is corrupted!".to_string())));
         }
 
         // Fetch the album_name for this album id

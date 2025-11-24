@@ -93,12 +93,12 @@ pub fn del_album(id: i32) -> Status {
         Err(Error::NotFound) => Status::NotFound,
         Err(_) => Status::InternalServerError,
         Ok(album) => {
-            // Delete album from filesystem, moving its children to root
+            // Also delete album from the filesystem, moving its children to root
             let album_path = unwrap_or_return!(get_album_path(&mut conn, album.id), Status::InternalServerError);
             let child_photos = unwrap_or_return!(get_photos_in_album(&mut conn, album.id), Status::InternalServerError);
             let child_albums = unwrap_or_return!(get_albums_in_album(&mut conn, album.id), Status::InternalServerError);
 
-            unwrap_or_return!(delete_album_fs(album_path, &child_photos, &child_albums), Status::InternalServerError);
+            unwrap_or_return!(delete_album_fs(&album_path, &child_photos, &child_albums), Status::InternalServerError);
 
             Status::Ok
         },
