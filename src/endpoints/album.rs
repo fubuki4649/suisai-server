@@ -104,21 +104,21 @@ pub fn del_album(id: i32) -> Status {
     }
 }
 
-/// Retrieves all albums from the database
+/// Retrieves a list of all root albums from the database
 ///
 /// # Endpoint
 /// `GET /album/all`
 ///
 /// # Returns
-/// - `200 OK`: JSON array of all albums
+/// - `200 OK`: JSON array of all root albums
 /// - `500 Internal Server Error`: Database or another server error occurred
 ///
 /// # Response Body
 /// Array of Album objects, each containing:
 /// - `albumId`: Album's unique identifier (i32)
 /// - `albumName`: Name of the album (String)
-#[get("/album/all")]
-pub fn all_albums() -> Result<Json<Vec<Album>>, Status> {
+#[get("/album/root")]
+pub fn all_root_albums() -> Result<Json<Vec<Album>>, Status> {
     let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
     let albums = unwrap_or_return!(get_root_albums(&mut conn), Err(Status::InternalServerError));
     

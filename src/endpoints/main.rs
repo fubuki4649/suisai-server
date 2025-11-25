@@ -35,7 +35,7 @@ pub async fn start_webserver() {
         new_album,
         rename_album,
         del_album,
-        all_albums,
+        all_root_albums,
 
         // Album queries
         album_photos,
