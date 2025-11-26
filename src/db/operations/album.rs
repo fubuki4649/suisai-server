@@ -78,6 +78,8 @@ pub fn get_album(conn: &mut MysqlConnection, album_ids: &[i32]) -> Result<Vec<Al
 ///
 /// # Returns
 /// The album containing the photo, or an error if not found
+///
+/// IMPORTANT: If the photo is unfiled, this function will return a `NotFound` error
 pub fn get_album_by_photo(conn: &mut MysqlConnection, photo_id: i64) -> Result<Album, Error> {
     albums
         .inner_join(album_photo_join::table.on(album_photo_join::parent_id.eq(albums_dsl::id)))

@@ -1,3 +1,4 @@
+use crate::_utils::path_prefix::PathPrefix;
 use crate::fs_operations::photo::move_photo_fs;
 use crate::models::album::Album;
 use crate::models::photo::Photo;
@@ -32,7 +33,7 @@ pub fn create_album_fs(album_name: &str) -> Result<(), Error> {
 /// Ok if the album was deleted successfully and its children moved, or an error if deletion failed.
 pub fn delete_album_fs(album_path: &Path, child_photos: &[Photo], child_albums: &[Album]) -> Result<(), Error> {
     let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
-    let full_album_path = storage_root.join(album_path);
+    let full_album_path = album_path.prefix(&storage_root);
 
     // Move child photos to the unfiled directory
     for photo in child_photos {
@@ -106,8 +107,8 @@ pub fn delete_album_fs(album_path: &Path, child_photos: &[Photo], child_albums: 
 /// ```
 pub fn move_album_fs(album_path: &Path, destination_path: &Path) -> Result<(), Error> {
     let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
-    let src_path = storage_root.join(album_path);
-    let dest_path = storage_root.join(destination_path);
+    let src_path = album_path.prefix(&storage_root);
+    let dest_path = destination_path.prefix(&storage_root);
 
     // Make sure the source exists and is a directory
     if !src_path.is_dir() {
