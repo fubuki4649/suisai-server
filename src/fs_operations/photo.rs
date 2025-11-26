@@ -1,7 +1,7 @@
+use crate::_utils::path_prefix::PathPrefix;
 use std::fs;
 use std::io::Error;
 use std::path::{Path, PathBuf};
-
 
 /// Deletes a photo, its thumbnail, andassociated files from the filesystem and clearing any empty
 /// thumbnail directories.
@@ -17,8 +17,8 @@ pub fn delete_photo_fs(photo_path: &Path, thumb_path: &Path) -> Result<(), Error
     let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
     let thumbnail_root = PathBuf::from(std::env::var("THUMBNAIL_ROOT").unwrap());
 
-    let full_photo_path = storage_root.join(photo_path);
-    let mut full_thumb_path = thumbnail_root.join(thumb_path);
+    let full_photo_path = photo_path.prefix(&storage_root);
+    let mut full_thumb_path = thumb_path.prefix(&storage_root);
 
     // Delete photo & thumbnail from hard drive
     fs::remove_file(&full_photo_path)?;
@@ -66,8 +66,8 @@ pub fn delete_photo_fs(photo_path: &Path, thumb_path: &Path) -> Result<(), Error
 /// Ok if all files were moved successfully, or an error if something failed.
 pub fn move_photo_fs(photo_path: &Path, dest_path: &Path) -> Result<(), Error> {
     let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
-    let full_photo_path = storage_root.join(photo_path);
-    let full_dest_path = storage_root.join(dest_path);
+    let full_photo_path = photo_path.prefix(&storage_root);
+    let full_dest_path = dest_path.prefix(&storage_root);
 
     // Extract the base name (without extension) from the photo filename
     let base_name = full_photo_path
@@ -75,7 +75,7 @@ pub fn move_photo_fs(photo_path: &Path, dest_path: &Path) -> Result<(), Error> {
         .unwrap_or(photo_path.file_name().unwrap());
 
     // Find all files in the album directory that match the pattern <base_name>* and move them to the unfiled directory
-    fs::read_dir(&full_photo_path)?
+    fs::read_dir(full_photo_path.parent().unwrap())?
         .flatten()
         // Filter out non-files
         .filter(|entry| entry.file_type().map(|ft| ft.is_file()).unwrap_or(false))

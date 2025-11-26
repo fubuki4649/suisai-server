@@ -7,7 +7,7 @@ use crate::db::operations::photo::get_photo;
 use crate::fs_operations::album::move_album_fs;
 use crate::fs_operations::photo::move_photo_fs;
 use crate::{msg, unwrap_ret, DB_POOL};
-use anyhow::Error;
+use diesel::result::Error;
 use rocket::http::Status;
 use rocket::post;
 use rocket::serde::json::{Json, Value};
@@ -34,20 +34,19 @@ pub fn unfile_photo(input: Json<Value>) -> (Status, Json<Value>) {
     let photos = unwrap_ret!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
     for photo in photos {
         // Get path to parent album
-        let album_path =  get_album_by_photo(&mut conn, photo.id)
-            .and_then(|album| get_album_path(&mut conn, album.id));
-
-        match album_path {
-            Ok(path) => {
-                // Move photo and associated files
-                unwrap_ret!(move_photo_fs(&path.join(photo.file_name), &PathBuf::from("/unfiled")), Status::InternalServerError);
-                // Move photo and associated files
-                unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
-            }
+        let parent_album = get_album_by_photo(&mut conn, photo.id);
+        let album_path = match parent_album {
+            Ok(album) => unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError),
+            Err(Error::NotFound) => PathBuf::from("/unfiled"),
             Err(err) => {
-                return (Status::InternalServerError, msg!(err.to_string()));
+                return (Status::InternalServerError, msg!("Failed to query album path: {:#?}", err));
             }
-        }
+        };
+
+        // Move photo and associated files
+        unwrap_ret!(move_photo_fs(&album_path.join(photo.file_name), Path::new("/unfiled")), Status::InternalServerError);
+        // Move photo and associated files
+        unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
     }
 
     (Status::Ok, msg!("Success"))
@@ -74,23 +73,21 @@ pub fn reassign_photo(input: Json<Value>) -> (Status, Json<Value>) {
 
     let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
-
     let photos = unwrap_ret!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
     for photo in photos {
-        // Get album ID of photo
-        let src_path = get_album_by_photo(&mut conn, photo.id).map_err(Error::from)
-            .and_then(|album| get_album_path(&mut conn, album.id).map_err(Error::from));
-
-        // Move photo and associated files
-        match src_path {
-            Ok(src) => {
-                let dest_path = unwrap_ret!(get_album_path(&mut conn, album_id), Status::InternalServerError);
-                unwrap_ret!(move_photo_fs(&src.join(photo.file_name), &dest_path), Status::InternalServerError);
-            }
+        // Get path to parent album
+        let parent_album = get_album_by_photo(&mut conn, photo.id);
+        let album_path = match parent_album {
+            Ok(album) => unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError),
+            Err(Error::NotFound) => PathBuf::from("/unfiled"),
             Err(err) => {
-                return (Status::InternalServerError, msg!(err.to_string()));
+                return (Status::InternalServerError, msg!("Failed to query album path: {:#?}", err));
             }
         };
+
+        // Move photo and associated files
+        let dest_path = unwrap_ret!(get_album_path(&mut conn, album_id), Status::InternalServerError);
+        unwrap_ret!(move_photo_fs(&album_path.join(photo.file_name), &dest_path), Status::InternalServerError);
 
         // Delete existing photo-album associations
         unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);

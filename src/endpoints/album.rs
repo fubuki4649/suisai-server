@@ -72,7 +72,7 @@ pub fn rename_album(id: i32, input: Json<Value>) -> (Status, Json<Value>) {
     match rename_album_db(&mut conn, Album {id, album_name}) {
         Ok(_) => (Status::Ok, msg!("Success")),
         Err(Error::NotFound) => (Status::NotFound, msg!("Album not found")),
-        Err(err) => (Status::InternalServerError, msg!(err.to_string())),
+        Err(err) => (Status::InternalServerError, msg!("Failed to rename album in database: {:#?}", err)),
     }
 }
 
@@ -103,7 +103,7 @@ pub fn del_album(id: i32) -> (Status, Json<Value>) {
     // Delete album from DB
     match delete_album(&mut conn, id) {
         Err(Error::NotFound) => (Status::NotFound, msg!("Album not found")),
-        Err(err) => (Status::InternalServerError, msg!(err.to_string())),
+        Err(err) => (Status::InternalServerError, msg!("Failed to delete album from database: {:#?}", err)),
         Ok(_) => {
             (Status::Ok, msg!("Success"))
         },
