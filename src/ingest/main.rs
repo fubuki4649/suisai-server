@@ -67,9 +67,9 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
         }
 
         // Generate and store a JPEG thumbnail at `THUMBNAIL_ROOT/yyyymm/FILENAME.jpeg`
-        let date = path.get_photo_date();
+        let date = new_path.get_photo_date();
         let thumbnail_dir = format!("{}/{}{:02}/", env::var("THUMBNAIL_ROOT").unwrap(), date.year(), date.month());
-        let thumbnail_filename = format!("{}.jpeg", path.file_stem().unwrap().to_string_lossy());
+        let thumbnail_filename = format!("{}.jpeg", new_path.file_stem().unwrap().to_string_lossy());
         let mut thumbnail_path = format!("{thumbnail_dir}{thumbnail_filename}");
         // Create Thumbnail
         match extract_thumbnail_full(new_path.to_str().unwrap(), &thumbnail_dir, &thumbnail_filename) {

@@ -11,7 +11,7 @@ use anyhow::Error;
 use rocket::http::Status;
 use rocket::post;
 use rocket::serde::json::{Json, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Removes photos from all albums they are currently assigned to
 ///
@@ -125,7 +125,7 @@ pub fn unfile_album(input: Json<Value>) -> (Status, Json<Value>) {
     for album in albums {
         // Move album to root
         let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
-        unwrap_ret!(move_album_fs(&album_path, &PathBuf::from("/")), Status::InternalServerError);
+        unwrap_ret!(move_album_fs(&album_path, &Path::new("/").join(album.album_name)), Status::InternalServerError);
 
         // Reflect change in DB
         unwrap_ret!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);
@@ -156,10 +156,11 @@ pub fn reassign_album(input: Json<Value>) -> (Status, Json<Value>) {
     let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
     let albums = unwrap_ret!(get_album(&mut conn, &album_ids), Status::InternalServerError);
-    let dest_path = unwrap_ret!(get_album_path(&mut conn, parent_id), Status::InternalServerError);
+    let dest = unwrap_ret!(get_album_path(&mut conn, parent_id), Status::InternalServerError);
     for album in albums {
         // Move album to new parent
         let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
+        let dest_path = dest.join(album.album_name);
         unwrap_ret!(move_album_fs(&album_path, &dest_path), Status::InternalServerError);
 
         // Reflect changes in DB

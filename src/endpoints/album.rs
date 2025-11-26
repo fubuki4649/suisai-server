@@ -1,18 +1,17 @@
 use crate::_utils::json_map::JsonMap;
-use crate::db::operations::album::{create_album, delete_album, get_root_albums, rename_album as rename_album_db};
+use crate::db::operations::album::{create_album, delete_album, get_album, get_root_albums, rename_album as rename_album_db};
 use crate::db::operations::paths::get_album_path;
 use crate::db::operations::query::{get_albums_in_album, get_photos_in_album, get_photos_unfiled};
-use crate::fs_operations::album::delete_album_fs;
+use crate::fs_operations::album::{create_album_fs, delete_album_fs, move_album_fs};
 use crate::models::album::{Album, NewAlbum};
 use crate::models::photo::Photo;
 use crate::{msg, unwrap_err, unwrap_ret, DB_POOL};
-use anyhow::Result;
 use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
 
-/// Creates a new album in the database
+/// Creates a new "root" album at `$STORAGE_ROOT`
 ///
 /// # Endpoint
 /// `POST /album/new`
@@ -30,6 +29,9 @@ pub fn new_album(input: Json<Value>) -> (Status, Json<Value>) {
     let album_name = unwrap_ret!(input.get_value::<String>("album_name"), Status::BadRequest);
     let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
+    // Create the album directory in the filesystem
+    unwrap_ret!(create_album_fs(&album_name), Status::InternalServerError);
+
     // Create albums and return the appropriate response based off the number of rows created
     let rows = unwrap_ret!(create_album(&mut conn, NewAlbum {album_name: album_name.to_string()}), Status::InternalServerError);
     match rows {
@@ -39,7 +41,7 @@ pub fn new_album(input: Json<Value>) -> (Status, Json<Value>) {
     }
 }
 
-/// Renames an existing album in the database
+/// Renames an existing album
 ///
 /// # Endpoint
 /// `PATCH /album/<id>/rename`
@@ -61,6 +63,12 @@ pub fn rename_album(id: i32, input: Json<Value>) -> (Status, Json<Value>) {
     let album_name = unwrap_ret!(input.get_value::<String>("album_name"), Status::BadRequest);
     let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
+    // Rename the album on disk
+    let old_path = unwrap_ret!(get_album_path(&mut conn, id), Status::InternalServerError);
+    let new_path = unwrap_ret!(old_path.parent().ok_or("Cannot rename the root directory itself!"), Status::InternalServerError).join(&album_name);
+    unwrap_ret!(move_album_fs(&old_path, &new_path), Status::InternalServerError);
+
+    // Rename the album in the DB
     match rename_album_db(&mut conn, Album {id, album_name}) {
         Ok(_) => (Status::Ok, msg!("Success")),
         Err(Error::NotFound) => (Status::NotFound, msg!("Album not found")),
@@ -84,18 +92,19 @@ pub fn rename_album(id: i32, input: Json<Value>) -> (Status, Json<Value>) {
 pub fn del_album(id: i32) -> (Status, Json<Value>) {
     let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
+    // Delete album from disk, moving its children to root
+    let album = unwrap_ret!(get_album(&mut conn, &[id]).and_then(|mut albums| albums.pop().ok_or(Error::NotFound)), Status::InternalServerError);
+    let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
+    let child_photos = unwrap_ret!(get_photos_in_album(&mut conn, album.id), Status::InternalServerError);
+    let child_albums = unwrap_ret!(get_albums_in_album(&mut conn, album.id), Status::InternalServerError);
+
+    unwrap_ret!(delete_album_fs(&album_path, &child_photos, &child_albums), Status::InternalServerError);
+
     // Delete album from DB
     match delete_album(&mut conn, id) {
         Err(Error::NotFound) => (Status::NotFound, msg!("Album not found")),
         Err(err) => (Status::InternalServerError, msg!(err.to_string())),
-        Ok(album) => {
-            // Also delete album from the filesystem, moving its children to root
-            let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
-            let child_photos = unwrap_ret!(get_photos_in_album(&mut conn, album.id), Status::InternalServerError);
-            let child_albums = unwrap_ret!(get_albums_in_album(&mut conn, album.id), Status::InternalServerError);
-
-            unwrap_ret!(delete_album_fs(&album_path, &child_photos, &child_albums), Status::InternalServerError);
-
+        Ok(_) => {
             (Status::Ok, msg!("Success"))
         },
     }
