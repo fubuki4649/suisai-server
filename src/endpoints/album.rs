@@ -5,7 +5,7 @@ use crate::db::operations::query::{get_albums_in_album, get_photos_in_album, get
 use crate::fs_operations::album::delete_album_fs;
 use crate::models::album::{Album, NewAlbum};
 use crate::models::photo::Photo;
-use crate::{unwrap_or_return, DB_POOL};
+use crate::{msg, unwrap_err, unwrap_ret, DB_POOL};
 use anyhow::Result;
 use diesel::result::Error;
 use rocket::http::Status;
@@ -26,19 +26,16 @@ use rocket::{delete, get, patch, post};
 /// - `400 Bad Request`: Missing or invalid album_name in request body
 /// - `500 Internal Server Error`: Database or other server error occurred
 #[post("/album/new", format = "json", data = "<input>")]
-pub fn new_album(input: Json<Value>) -> Status {
-    let album_name = unwrap_or_return!(input.get_value::<String>("album_name"), Status::BadRequest);
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
-    
-    match create_album(&mut conn, NewAlbum {album_name: album_name.to_string()}) {
-        Ok(rows) => {
-            match rows {
-                1 => Status::Created,
-                0 => Status::Conflict,
-                _ => Status::InternalServerError,
-            }
-        },
-        Err(_) => Status::InternalServerError,
+pub fn new_album(input: Json<Value>) -> (Status, Json<Value>) {
+    let album_name = unwrap_ret!(input.get_value::<String>("album_name"), Status::BadRequest);
+    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
+
+    // Create albums and return the appropriate response based off the number of rows created
+    let rows = unwrap_ret!(create_album(&mut conn, NewAlbum {album_name: album_name.to_string()}), Status::InternalServerError);
+    match rows {
+        1 => (Status::Created, msg!("Success")),
+        0 => (Status::Conflict, msg!("Album already exists")),
+        _ => (Status::InternalServerError, msg!("Something went horribly wrong. The database is probably corrupted (Database transacted > 1 rows)")),
     }
 }
 
@@ -60,14 +57,14 @@ pub fn new_album(input: Json<Value>) -> Status {
 /// - `404 Not Found`: Album with the specified ID does not exist
 /// - `500 Internal Server Error`: Database or other server error occurred
 #[patch("/album/<id>/rename", format = "json", data = "<input>")]
-pub fn rename_album(id: i32, input: Json<Value>) -> Status {
-    let album_name = unwrap_or_return!(input.get_value::<String>("album_name"), Status::BadRequest);
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
+pub fn rename_album(id: i32, input: Json<Value>) -> (Status, Json<Value>) {
+    let album_name = unwrap_ret!(input.get_value::<String>("album_name"), Status::BadRequest);
+    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
     match rename_album_db(&mut conn, Album {id, album_name}) {
-        Ok(_) => Status::Ok,
-        Err(Error::NotFound) => Status::NotFound,
-        Err(_) => Status::InternalServerError,
+        Ok(_) => (Status::Ok, msg!("Success")),
+        Err(Error::NotFound) => (Status::NotFound, msg!("Album not found")),
+        Err(err) => (Status::InternalServerError, msg!(err.to_string())),
     }
 }
 
@@ -84,22 +81,22 @@ pub fn rename_album(id: i32, input: Json<Value>) -> Status {
 /// - `404 Not Found`: Album with the specified ID does not exist
 /// - `500 Internal Server Error`: Database or other server error occurred
 #[delete("/album/<id>/delete")]
-pub fn del_album(id: i32) -> Status {
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
+pub fn del_album(id: i32) -> (Status, Json<Value>) {
+    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
     // Delete album from DB
     match delete_album(&mut conn, id) {
-        Err(Error::NotFound) => Status::NotFound,
-        Err(_) => Status::InternalServerError,
+        Err(Error::NotFound) => (Status::NotFound, msg!("Album not found")),
+        Err(err) => (Status::InternalServerError, msg!(err.to_string())),
         Ok(album) => {
             // Also delete album from the filesystem, moving its children to root
-            let album_path = unwrap_or_return!(get_album_path(&mut conn, album.id), Status::InternalServerError);
-            let child_photos = unwrap_or_return!(get_photos_in_album(&mut conn, album.id), Status::InternalServerError);
-            let child_albums = unwrap_or_return!(get_albums_in_album(&mut conn, album.id), Status::InternalServerError);
+            let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
+            let child_photos = unwrap_ret!(get_photos_in_album(&mut conn, album.id), Status::InternalServerError);
+            let child_albums = unwrap_ret!(get_albums_in_album(&mut conn, album.id), Status::InternalServerError);
 
-            unwrap_or_return!(delete_album_fs(&album_path, &child_photos, &child_albums), Status::InternalServerError);
+            unwrap_ret!(delete_album_fs(&album_path, &child_photos, &child_albums), Status::InternalServerError);
 
-            Status::Ok
+            (Status::Ok, msg!("Success"))
         },
     }
 }
@@ -118,9 +115,9 @@ pub fn del_album(id: i32) -> Status {
 /// - `albumId`: Album's unique identifier (i32)
 /// - `albumName`: Name of the album (String)
 #[get("/album/root")]
-pub fn all_root_albums() -> Result<Json<Vec<Album>>, Status> {
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
-    let albums = unwrap_or_return!(get_root_albums(&mut conn), Err(Status::InternalServerError));
+pub fn all_root_albums() -> Result<Json<Vec<Album>>, (Status, Json<Value>)> {
+    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
+    let albums = unwrap_err!(get_root_albums(&mut conn), Status::InternalServerError);
     
     Ok(Json(albums))
 }
@@ -138,10 +135,10 @@ pub fn all_root_albums() -> Result<Json<Vec<Album>>, Status> {
 /// # Response Body
 /// Array of webapi::Photo objects containing metadata for each photo in the album
 #[get("/album/<id>/photos")]
-pub fn album_photos(id: i32) -> Result<Json<Vec<Photo>>, Status> {
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
+pub fn album_photos(id: i32) -> Result<Json<Vec<Photo>>, (Status, Json<Value>)> {
+    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
 
-    let album_photos =  unwrap_or_return!(get_photos_in_album(&mut conn, id), Err(Status::InternalServerError));
+    let album_photos =  unwrap_err!(get_photos_in_album(&mut conn, id), Status::InternalServerError);
     Ok(Json(album_photos))
 }
 
@@ -158,10 +155,10 @@ pub fn album_photos(id: i32) -> Result<Json<Vec<Photo>>, Status> {
 /// # Response Body
 /// Array of api::Album objects containing metadata for each photo in the album
 #[get("/album/<id>/albums")]
-pub fn album_albums(id: i32) -> Result<Json<Vec<Album>>, Status> {
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
+pub fn album_albums(id: i32) -> Result<Json<Vec<Album>>, (Status, Json<Value>)> {
+    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
 
-    let album_albums =  unwrap_or_return!(get_albums_in_album(&mut conn, id), Err(Status::InternalServerError));
+    let album_albums =  unwrap_err!(get_albums_in_album(&mut conn, id), Status::InternalServerError);
     Ok(Json(album_albums))
 }
 
@@ -178,9 +175,9 @@ pub fn album_albums(id: i32) -> Result<Json<Vec<Album>>, Status> {
 /// # Response Body
 /// Array of webapi::Photo objects containing metadata for each unfiled photo
 #[get("/album/unfiled/photos")]
-pub fn unfiled_photos() -> Result<Json<Vec<Photo>>, Status> {
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
+pub fn unfiled_photos() -> Result<Json<Vec<Photo>>, (Status, Json<Value>)> {
+    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
 
-    let unfiled_photos =  unwrap_or_return!(get_photos_unfiled(&mut conn), Err(Status::InternalServerError));
+    let unfiled_photos =  unwrap_err!(get_photos_unfiled(&mut conn), Status::InternalServerError);
     Ok(Json(unfiled_photos))
 }

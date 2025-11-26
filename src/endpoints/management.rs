@@ -6,7 +6,7 @@ use crate::db::operations::paths::get_album_path;
 use crate::db::operations::photo::get_photo;
 use crate::fs_operations::album::move_album_fs;
 use crate::fs_operations::photo::move_photo_fs;
-use crate::{unwrap_or_return, DB_POOL};
+use crate::{msg, unwrap_ret, DB_POOL};
 use anyhow::Error;
 use rocket::http::Status;
 use rocket::post;
@@ -27,11 +27,11 @@ use std::path::PathBuf;
 /// - `400 Bad Request`: Missing or invalid album_ids or photo_ids in request body
 /// - `500 Internal Server Error`: Full or partial error occurred. Query may not be fully executed
 #[post("/management/photo/unfile", format = "json", data = "<input>")]
-pub fn unfile_photo(input: Json<Value>) -> Status {
-    let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
+pub fn unfile_photo(input: Json<Value>) -> (Status, Json<Value>) {
+    let photo_ids = unwrap_ret!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
+    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
-    let photos = unwrap_or_return!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
+    let photos = unwrap_ret!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
     for photo in photos {
         // Get path to parent album
         let album_path =  get_album_by_photo(&mut conn, photo.id)
@@ -40,17 +40,17 @@ pub fn unfile_photo(input: Json<Value>) -> Status {
         match album_path {
             Ok(path) => {
                 // Move photo and associated files
-                unwrap_or_return!(move_photo_fs(&path.join(photo.file_name), &PathBuf::from("/unfiled")), Status::InternalServerError);
+                unwrap_ret!(move_photo_fs(&path.join(photo.file_name), &PathBuf::from("/unfiled")), Status::InternalServerError);
                 // Move photo and associated files
-                unwrap_or_return!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
+                unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
             }
-            Err(_) => {
-                return Status::InternalServerError;
+            Err(err) => {
+                return (Status::InternalServerError, msg!(err.to_string()));
             }
         }
     }
 
-    Status::Ok
+    (Status::Ok, msg!("Success"))
 }
 
 /// Moves photos from their current album(s) to a different album
@@ -67,15 +67,15 @@ pub fn unfile_photo(input: Json<Value>) -> Status {
 /// - `200 OK`: Photos were successfully moved to the new album
 /// - `400 Bad Request`: Missing or invalid album_id or photo_ids in request body
 /// - `500 Internal Server Error`: Full or partial error occurred. Query may not be fully executed
-#[post("/management/reassign", format = "json", data = "<input>")]
-pub fn reassign_photo(input: Json<Value>) -> Status {
-    let album_id = unwrap_or_return!(input.get_value::<i32>("album_id"), Status::BadRequest);
-    let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
+#[post("/management/photo/reassign", format = "json", data = "<input>")]
+pub fn reassign_photo(input: Json<Value>) -> (Status, Json<Value>) {
+    let album_id = unwrap_ret!(input.get_value::<i32>("album_id"), Status::BadRequest);
+    let photo_ids = unwrap_ret!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
 
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
+    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
 
-    let photos = unwrap_or_return!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
+    let photos = unwrap_ret!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
     for photo in photos {
         // Get album ID of photo
         let src_path = get_album_by_photo(&mut conn, photo.id).map_err(Error::from)
@@ -84,22 +84,22 @@ pub fn reassign_photo(input: Json<Value>) -> Status {
         // Move photo and associated files
         match src_path {
             Ok(src) => {
-                let dest_path = unwrap_or_return!(get_album_path(&mut conn, album_id), Status::InternalServerError);
-                unwrap_or_return!(move_photo_fs(&src.join(photo.file_name), &dest_path), Status::InternalServerError);
+                let dest_path = unwrap_ret!(get_album_path(&mut conn, album_id), Status::InternalServerError);
+                unwrap_ret!(move_photo_fs(&src.join(photo.file_name), &dest_path), Status::InternalServerError);
             }
-            Err(_) => {
-                return Status::InternalServerError;
+            Err(err) => {
+                return (Status::InternalServerError, msg!(err.to_string()));
             }
         };
 
         // Delete existing photo-album associations
-        unwrap_or_return!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
+        unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
 
         // Create a new photo-album association
-        unwrap_or_return!(add_photo_to_album(&mut conn, album_id, &[photo.id]), Status::InternalServerError);
+        unwrap_ret!(add_photo_to_album(&mut conn, album_id, &[photo.id]), Status::InternalServerError);
     }
     
-    Status::Ok
+    (Status::Ok, msg!("Success"))
 }
 
 
@@ -117,21 +117,21 @@ pub fn reassign_photo(input: Json<Value>) -> Status {
 /// - `400 Bad Request`: Missing or invalid album_ids or photo_ids in request body
 /// - `500 Internal Server Error`: Database or other server error occurred
 #[post("/management/album/unfile", format = "json", data = "<input>")]
-pub fn unfile_album(input: Json<Value>) -> Status {
-    let album_ids = unwrap_or_return!(input.get_value::<Vec<i32>>("album_ids"), Status::BadRequest);
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
+pub fn unfile_album(input: Json<Value>) -> (Status, Json<Value>) {
+    let album_ids = unwrap_ret!(input.get_value::<Vec<i32>>("album_ids"), Status::BadRequest);
+    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
-    let albums = unwrap_or_return!(get_album(&mut conn, &album_ids), Status::InternalServerError);
+    let albums = unwrap_ret!(get_album(&mut conn, &album_ids), Status::InternalServerError);
     for album in albums {
         // Move album to root
-        let album_path = unwrap_or_return!(get_album_path(&mut conn, album.id), Status::InternalServerError);
-        unwrap_or_return!(move_album_fs(&album_path, &PathBuf::from("/")), Status::InternalServerError);
+        let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
+        unwrap_ret!(move_album_fs(&album_path, &PathBuf::from("/")), Status::InternalServerError);
 
         // Reflect change in DB
-        unwrap_or_return!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);
+        unwrap_ret!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);
     }
 
-    Status::Ok
+    (Status::Ok, msg!("Success"))
 }
 
 /// Moves albums from their current parent album(s) to a different one
@@ -149,24 +149,24 @@ pub fn unfile_album(input: Json<Value>) -> Status {
 /// - `400 Bad Request`: Missing or invalid album_id or photo_ids in request body
 /// - `500 Internal Server Error`: Database error or other server error occurred
 #[post("/management/album/reassign", format = "json", data = "<input>")]
-pub fn reassign_album(input: Json<Value>) -> Status {
-    let parent_id = unwrap_or_return!(input.get_value::<i32>("album_id"), Status::BadRequest);
-    let album_ids = unwrap_or_return!(input.get_value::<Vec<i32>>("photo_ids"), Status::BadRequest);
+pub fn reassign_album(input: Json<Value>) -> (Status, Json<Value>) {
+    let parent_id = unwrap_ret!(input.get_value::<i32>("album_id"), Status::BadRequest);
+    let album_ids = unwrap_ret!(input.get_value::<Vec<i32>>("photo_ids"), Status::BadRequest);
 
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
+    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 
-    let albums = unwrap_or_return!(get_album(&mut conn, &album_ids), Status::InternalServerError);
-    let dest_path = unwrap_or_return!(get_album_path(&mut conn, parent_id), Status::InternalServerError);
+    let albums = unwrap_ret!(get_album(&mut conn, &album_ids), Status::InternalServerError);
+    let dest_path = unwrap_ret!(get_album_path(&mut conn, parent_id), Status::InternalServerError);
     for album in albums {
         // Move album to new parent
-        let album_path = unwrap_or_return!(get_album_path(&mut conn, album.id), Status::InternalServerError);
-        unwrap_or_return!(move_album_fs(&album_path, &dest_path), Status::InternalServerError);
+        let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
+        unwrap_ret!(move_album_fs(&album_path, &dest_path), Status::InternalServerError);
 
         // Reflect changes in DB
-        unwrap_or_return!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);
-        unwrap_or_return!(add_album_to_album(&mut conn, parent_id, &[album.id]), Status::InternalServerError);
+        unwrap_ret!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);
+        unwrap_ret!(add_album_to_album(&mut conn, parent_id, &[album.id]), Status::InternalServerError);
     }
 
-    Status::Ok
+    (Status::Ok, msg!("Success"))
 }
 

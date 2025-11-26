@@ -4,7 +4,7 @@ use crate::db::operations::photo::{delete_photo, get_photo};
 use crate::db::operations::thumbnail::get_thumbnail;
 use crate::fs_operations::photo::delete_photo_fs;
 use crate::models::photo::Photo;
-use crate::{unwrap_or_return, DB_POOL};
+use crate::{msg, unwrap_err, unwrap_ret, DB_POOL};
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, post};
@@ -24,22 +24,22 @@ use std::path::PathBuf;
 ///   (will succeed even if some photos did not exist)
 /// - `Status::InternalServerError` (500) if deletion fails for reasons other than missing photos
 #[delete("/photo/delete", format = "json", data = "<input>")]
-pub fn del_photo(input: Json<Value>) -> Status {
-    let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Status::InternalServerError);
+pub fn del_photo(input: Json<Value>) -> (Status, Json<Value>) {
+    let photo_ids = unwrap_ret!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
+    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
     
     // Delete photos from DB
-    let deleted = unwrap_or_return!(delete_photo(&mut conn, &photo_ids), Status::InternalServerError);
+    let deleted = unwrap_ret!(delete_photo(&mut conn, &photo_ids), Status::InternalServerError);
     
     // Also delete photos & thumbnail from filesystem, and ignore nonexistent/permission errors
     for photo in deleted {
-        let photo_path = unwrap_or_return!(get_photo_path(&mut conn, photo.id), Status::InternalServerError);
-        let thumb_path = unwrap_or_return!(get_thumbnail(&mut conn, photo.id), Status::InternalServerError).thumbnail_path;
+        let photo_path = unwrap_ret!(get_photo_path(&mut conn, photo.id), Status::InternalServerError);
+        let thumb_path = unwrap_ret!(get_thumbnail(&mut conn, photo.id), Status::InternalServerError).thumbnail_path;
 
-        unwrap_or_return!(delete_photo_fs(&photo_path, &PathBuf::from(thumb_path)), Status::InternalServerError);
+        unwrap_ret!(delete_photo_fs(&photo_path, &PathBuf::from(thumb_path)), Status::InternalServerError);
     }
-    
-    Status::Ok
+
+    (Status::Ok, msg!("Success"))
 }
 
 
@@ -57,10 +57,10 @@ pub fn del_photo(input: Json<Value>) -> Status {
 ///   (skips any IDs that don't exist)
 /// - `Status::InternalServerError` (500) if retrieval fails
 #[post("/photo/get", format = "json", data = "<input>")]
-pub fn get_photos(input: Json<Value>) -> Result<Json<Vec<Photo>>, Status> {
-    let photo_ids = unwrap_or_return!(input.get_value::<Vec<i64>>("photo_ids"), Err(Status::BadRequest));
-    let mut conn = unwrap_or_return!(DB_POOL.get(), Err(Status::InternalServerError));
+pub fn get_photos(input: Json<Value>) -> Result<Json<Vec<Photo>>, (Status, Json<Value>)> {
+    let photo_ids = unwrap_err!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
+    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
 
-    let photos = unwrap_or_return!(get_photo(&mut conn, &photo_ids), Err(Status::InternalServerError));
+    let photos = unwrap_err!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
     Ok(Json(photos))
 }
