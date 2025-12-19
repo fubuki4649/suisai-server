@@ -1,15 +1,60 @@
 use crate::_utils::json_map::JsonMap;
 use crate::db::operations::album::{create_album, delete_album, get_album, get_root_albums, rename_album as rename_album_db};
 use crate::db::operations::paths::get_album_path;
-use crate::db::operations::query::{get_albums_in_album, get_photos_in_album, get_photos_unfiled};
+use crate::db::operations::query::{get_photos_in_album, get_photos_unfiled, get_subalbums};
 use crate::fs_operations::album::{create_album_fs, delete_album_fs, move_album_fs};
-use crate::models::album::{Album, NewAlbum};
+use crate::models::album::{Album, AlbumTree, NewAlbum};
 use crate::models::photo::Photo;
 use crate::{msg, unwrap_err, unwrap_ret, DB_POOL};
 use diesel::result::Error;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{delete, get, patch, post};
+
+
+/// Retrieves the album tree structure from the database
+///
+/// # Endpoint
+/// `GET /album/tree`
+///
+/// # Returns
+/// - `200 OK`: A tree structure representing all the albums
+/// - `500 Internal Server Error`: Database or another server error occurred
+///
+/// # Response Body
+/// An album tree, with each node containing:
+/// - `albumId`: Album's unique identifier (i32)
+///     - (-1) for the root node (the root node is not an album)
+/// - `albumName`: Name of the album (String)
+///     - A placeholder value for the root node. This value can be anything and should not be used
+/// - `children`: An album's children (Vec<AlbumTree>)
+///     - For the root album, this is a list of the root-level albums
+#[get("/album/tree")]
+pub fn get_album_tree() -> Result<Json<AlbumTree>, (Status, Json<Value>)> {
+    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
+    let mut tree = AlbumTree {
+        id: -1,
+        album_name: "Root Node - Not an Album!!!".to_string(),
+        children: unwrap_err!(get_root_albums(&mut conn), Status::InternalServerError).into_iter().map(Into::into).collect(),
+    };
+
+    fn fill_tree(node: &mut AlbumTree) -> anyhow::Result<()> {
+        let mut conn = DB_POOL.get()?;
+
+        if node.children.is_empty() {
+            node.children = get_subalbums(&mut conn, node.id)?.into_iter().map(Into::into).collect();
+        }
+
+        for child in &mut node.children {
+            fill_tree(child)?;
+        }
+
+        Ok(())
+    }
+
+    unwrap_err!(fill_tree(&mut tree), Status::InternalServerError);
+    Ok(Json(tree))
+}
 
 /// Creates a new "root" album at `$STORAGE_ROOT`
 ///
@@ -96,7 +141,7 @@ pub fn del_album(id: i32) -> (Status, Json<Value>) {
     let album = unwrap_ret!(get_album(&mut conn, &[id]).and_then(|mut albums| albums.pop().ok_or(Error::NotFound)), Status::InternalServerError);
     let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
     let child_photos = unwrap_ret!(get_photos_in_album(&mut conn, album.id), Status::InternalServerError);
-    let child_albums = unwrap_ret!(get_albums_in_album(&mut conn, album.id), Status::InternalServerError);
+    let child_albums = unwrap_ret!(get_subalbums(&mut conn, album.id), Status::InternalServerError);
 
     unwrap_ret!(delete_album_fs(&album_path, &child_photos, &child_albums), Status::InternalServerError);
 
@@ -108,27 +153,6 @@ pub fn del_album(id: i32) -> (Status, Json<Value>) {
             (Status::Ok, msg!("Success"))
         },
     }
-}
-
-/// Retrieves a list of all root albums from the database
-///
-/// # Endpoint
-/// `GET /album/all`
-///
-/// # Returns
-/// - `200 OK`: JSON array of all root albums
-/// - `500 Internal Server Error`: Database or another server error occurred
-///
-/// # Response Body
-/// Array of Album objects, each containing:
-/// - `albumId`: Album's unique identifier (i32)
-/// - `albumName`: Name of the album (String)
-#[get("/album/root")]
-pub fn all_root_albums() -> Result<Json<Vec<Album>>, (Status, Json<Value>)> {
-    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
-    let albums = unwrap_err!(get_root_albums(&mut conn), Status::InternalServerError);
-    
-    Ok(Json(albums))
 }
 
 
@@ -149,26 +173,6 @@ pub fn album_photos(id: i32) -> Result<Json<Vec<Photo>>, (Status, Json<Value>)> 
 
     let album_photos =  unwrap_err!(get_photos_in_album(&mut conn, id), Status::InternalServerError);
     Ok(Json(album_photos))
-}
-
-
-/// Retrieves all subalbums linked to a given album
-///
-/// # Endpoint
-/// `GET /album/<id>/photos`
-///
-/// # Returns
-/// - `200 OK`: JSON array of unfiled photos
-/// - `500 Internal Server Error`: Database or another server error occurred
-///
-/// # Response Body
-/// Array of api::Album objects containing metadata for each photo in the album
-#[get("/album/<id>/albums")]
-pub fn album_albums(id: i32) -> Result<Json<Vec<Album>>, (Status, Json<Value>)> {
-    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
-
-    let album_albums =  unwrap_err!(get_albums_in_album(&mut conn, id), Status::InternalServerError);
-    Ok(Json(album_albums))
 }
 
 

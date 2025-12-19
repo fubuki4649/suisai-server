@@ -31,7 +31,7 @@ pub fn get_photos_in_album(conn: &mut MysqlConnection, album_id: i32) -> Result<
 ///
 /// # Returns
 /// Vec of all subalbums belonging to the album, or error if query fails
-pub fn get_albums_in_album(conn: &mut MysqlConnection, album_id: i32) -> Result<Vec<Album>, Error> {
+pub fn get_subalbums(conn: &mut MysqlConnection, album_id: i32) -> Result<Vec<Album>, Error> {
     join_dsl::album_album_join
         .filter(join_dsl::parent_id.eq(album_id))
         .inner_join(albums.on(join_dsl::album_id.eq(albums_dsl::id)))

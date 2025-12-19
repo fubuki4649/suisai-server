@@ -3,18 +3,16 @@ use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
 
 
-/// Represents an album with a unique identifier, name, and associated photos.
+/// Represents an album with a unique identifier and name.
 ///
 /// # Fields
 /// * `id`: Album's unique ID, serialized as `albumId` in JSON
-/// * `directory`: Directory that the album corresponds to on disk
 /// * `album_name`: Album name
 ///
 /// # Example
 /// ```
 /// let album = Album {
 ///     id: 1,
-///     directory: "/home/user/Pictures/Vacation".into(),
 ///     album_name: "Vacation".into(),
 /// };
 /// ```
@@ -25,6 +23,42 @@ pub struct Album {
     pub id: i32,
     pub album_name: String
 }
+
+
+/// Represents an album as a tree node.
+///
+/// # Fields
+/// * `id`: Album's unique ID, serialized as `albumId` in JSON
+/// * `album_name`: Album name
+/// * `children`: Vec of child albums
+///
+/// # Example
+/// ```
+/// let album = Album {
+///     id: 1,
+///     album_name: "Vacation".into(),
+///     children: vec![]
+/// };
+/// ```
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AlbumTree {
+    #[serde(rename = "albumId")]
+    pub id: i32,
+    pub album_name: String,
+    pub children: Vec<AlbumTree>
+}
+
+impl From<Album> for AlbumTree {
+    fn from(album: Album) -> Self {
+        AlbumTree {
+            id: album.id,
+            album_name: album.album_name,
+            children: vec![]
+        }
+    }
+}
+
 
 /// A variant of `Album` without photos or ID, used for creating new album instances.
 ///

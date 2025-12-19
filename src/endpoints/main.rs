@@ -32,14 +32,13 @@ pub async fn start_webserver() {
         health_check,
         
         // Album endpoints
+        get_album_tree,
         new_album,
         rename_album,
         del_album,
-        all_root_albums,
 
         // Album queries
         album_photos,
-        album_albums,
         unfiled_photos,
 
         // Photo endpoints
