@@ -22,13 +22,13 @@ pub fn create_album(conn: &mut MysqlConnection, album: NewAlbum) -> Result<usize
         .execute(conn)
 }
 
-/// Gets all albums from the database with their associated photos
+/// Gets all root-level albums from the database
 ///
 /// # Arguments
 /// * `conn` - Database connection
 ///
 /// # Returns
-/// All albums found in the database, or an error if query fails
+/// All root-level albums found in the database, or an error if query fails
 pub fn get_root_albums(conn: &mut MysqlConnection) -> Result<Vec<Album>, Error> {
     albums::table()
         // LEFT JOIN album_album_join ON album_album_join.album_id = albums.id
@@ -40,6 +40,19 @@ pub fn get_root_albums(conn: &mut MysqlConnection) -> Result<Vec<Album>, Error> 
         // select only album columns
         .select(Album::as_select())
         .load(conn)
+}
+
+
+/// Gets all albums from the database, regardless of parent
+///
+/// # Arguments
+/// * `conn` - Database connection
+///
+/// # Returns
+/// All albums found in the database, or an error if query fails
+pub fn get_all_albums(conn: &mut MysqlConnection) -> Result<Vec<Album>, Error> {
+    albums::table()
+        .load::<Album>(conn)
 }
 
 /// Updates an existing album's name in the database based on the provided album's `id`

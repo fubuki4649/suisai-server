@@ -1,5 +1,5 @@
 use crate::_utils::json_map::JsonMap;
-use crate::db::operations::album::{create_album, delete_album, get_album, get_root_albums, rename_album as rename_album_db};
+use crate::db::operations::album::{create_album, delete_album, get_album, get_all_albums, get_root_albums, rename_album as rename_album_db};
 use crate::db::operations::paths::get_album_path;
 use crate::db::operations::query::{get_photos_in_album, get_photos_unfiled, get_subalbums};
 use crate::fs_operations::album::{create_album_fs, delete_album_fs, move_album_fs};
@@ -54,6 +54,29 @@ pub fn get_album_tree() -> Result<Json<AlbumTree>, (Status, Json<Value>)> {
 
     unwrap_err!(fill_tree(&mut tree), Status::InternalServerError);
     Ok(Json(tree))
+}
+
+/// Retrieves all albums from the database in a flat structure
+///
+/// # Endpoint
+/// `GET /album/flat`
+///
+/// # Returns
+/// - `200 OK`: A vec with all the albums
+/// - `500 Internal Server Error`: Database or another server error occurred
+///
+/// # Response Body
+/// A vec of albums, with each containing:
+/// - `albumId`: Album's unique identifier (i32)
+///     - (-1) for the root node (the root node is not an album)
+/// - `albumName`: Name of the album (String)
+///     - A placeholder value for the root node. This value can be anything and should not be used
+#[get("/album/flat")]
+pub fn get_album_flat() -> Result<Json<Vec<Album>>, (Status, Json<Value>)> {
+    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
+
+    let albums = unwrap_err!(get_all_albums(&mut conn), Status::InternalServerError);
+    Ok(Json(albums))
 }
 
 /// Creates a new "root" album at `$STORAGE_ROOT`

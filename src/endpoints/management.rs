@@ -147,8 +147,8 @@ pub fn unfile_album(input: Json<Value>) -> (Status, Json<Value>) {
 /// - `500 Internal Server Error`: Database error or other server error occurred
 #[post("/management/album/reassign", format = "json", data = "<input>")]
 pub fn reassign_album(input: Json<Value>) -> (Status, Json<Value>) {
-    let parent_id = unwrap_ret!(input.get_value::<i32>("album_id"), Status::BadRequest);
-    let album_ids = unwrap_ret!(input.get_value::<Vec<i32>>("photo_ids"), Status::BadRequest);
+    let parent_id = unwrap_ret!(input.get_value::<i32>("parent_id"), Status::BadRequest);
+    let album_ids = unwrap_ret!(input.get_value::<Vec<i32>>("album_ids"), Status::BadRequest);
 
     let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
 

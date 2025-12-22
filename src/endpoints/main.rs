@@ -33,6 +33,7 @@ pub async fn start_webserver() {
         
         // Album endpoints
         get_album_tree,
+        get_album_flat,
         new_album,
         rename_album,
         del_album,
