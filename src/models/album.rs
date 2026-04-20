@@ -1,7 +1,7 @@
 use crate::db::schema::albums;
 use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
-
+use sea_orm::DerivePartialModel;
 
 /// Represents an album with a unique identifier and name.
 ///
@@ -16,7 +16,8 @@ use rocket::serde::{Deserialize, Serialize};
 ///     album_name: "Vacation".into(),
 /// };
 /// ```
-#[derive(Queryable, Selectable, AsChangeset, Serialize, Deserialize, Debug)]
+#[derive(DerivePartialModel, Queryable, Selectable, AsChangeset, Serialize, Deserialize, Debug)]
+#[sea_orm(entity = "crate::db::entities::albums::Entity")]
 #[serde(rename_all = "camelCase")]
 pub struct Album {
     #[serde(rename = "albumId")]
@@ -75,7 +76,8 @@ impl From<Album> for AlbumTree {
 ///     album_name: "Vacation Photos".into()
 /// };
 /// ```
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(DerivePartialModel, Insertable, Deserialize, Debug)]
+#[sea_orm(entity = "crate::db::entities::albums::Entity")]
 #[serde(rename_all = "camelCase")]
 #[diesel(table_name = albums)]
 pub struct NewAlbum {

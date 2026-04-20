@@ -5,6 +5,7 @@ use diesel::MysqlConnection;
 use dotenvy::dotenv;
 use std::env;
 use std::sync::LazyLock;
+use crate::state::AppState;
 
 mod db;
 mod endpoints;
@@ -14,6 +15,7 @@ mod _utils;
 mod preflight;
 mod models;
 mod fs_operations;
+mod state;
 
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
@@ -35,9 +37,14 @@ fn establish_connection_pool() -> Pool {
 #[rocket::main]
 async fn main() {
     dotenv().ok();
+    let db = sea_orm::Database::connect(env::var("DATABASE_URL").expect("DATABASE_URL must be set")).await.unwrap();
+
+    // Initialize global state
+    let state = AppState { db };
     
     // Run preflight checks
     check_directories().unwrap();
-    
+
+    // TODO: REPLACE CLI
     run_cli().await;
 }

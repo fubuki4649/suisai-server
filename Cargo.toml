@@ -7,6 +7,17 @@ edition = "2024"
 diesel = { version = "2.3.3", features = ["mysql", "r2d2", "chrono"] }
 dotenvy = "0.15.7"
 r2d2 = "0.8.10"
+
+sea-orm = { version = "2.0.0-rc.38", features = [
+    "sqlx-sqlite",
+    "runtime-tokio-rustls",
+    "macros",
+    "with-uuid"
+] }
+# Ensure you have the UUID crate with v7 enabled
+uuid = { version = "1.23.1", features = ["v7", "serde"] }
+
+
 chrono = { version = "0.4.42", features = ["serde"] }
 rocket = { version = "0.5.1", features = ["json"] }
 anyhow = "1.0.100"

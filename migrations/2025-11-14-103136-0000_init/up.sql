@@ -1,6 +1,6 @@
--- Your SQL goes here
+-- Photos Table
 CREATE TABLE photos (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id UUID PRIMARY KEY,
     hash CHAR(32) NOT NULL,
     file_name VARCHAR(64) NOT NULL,
     size_on_disk INT NOT NULL,
@@ -17,18 +17,28 @@ CREATE TABLE photos (
     shutter_speed VARCHAR(32) NOT NULL,
     aperture FLOAT NOT NULL,
     -- Uniqueness constraints (also create indexes automatically)
-    UNIQUE KEY uq_hash (hash),
-    UNIQUE KEY uq_file_name (file_name(64))
+    UNIQUE KEY uq_hash (hash)
 );
 
+-- Albums Table
 CREATE TABLE albums (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id UUID PRIMARY KEY,
     album_name VARCHAR(255) NOT NULL,
     CONSTRAINT album_name_not_unfiled CHECK (album_name != 'unfiled')
 );
 
+-- Sharing states
+CREATE TABLE sharing_states (
+                                id UUID PRIMARY KEY,
+    -- Separate nullable foreign keys
+                                photo_id UUID REFERENCES photos(id) ON DELETE CASCADE,
+                                album_id UUID REFERENCES albums(id) ON DELETE CASCADE
+
+);
+
+-- Thumbnails Table (1-to-1 with Photos)
 CREATE TABLE thumbnails (
-    id BIGINT NOT NULL,
+    id UUID NOT NULL,
     thumbnail_path TEXT NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_thumbnail_photo
@@ -36,9 +46,10 @@ CREATE TABLE thumbnails (
             ON DELETE CASCADE
 );
 
+-- Album-Photo Join
 CREATE TABLE album_photo_join (
-    parent_id INT NOT NULL,
-    photo_id BIGINT NOT NULL,
+    parent_id UUID NOT NULL,
+    photo_id UUID NOT NULL,
     PRIMARY KEY (parent_id, photo_id),
     CONSTRAINT fk_album_photo_parent
         FOREIGN KEY (parent_id) REFERENCES albums(id)
@@ -49,9 +60,10 @@ CREATE TABLE album_photo_join (
     INDEX idx_photo_id (photo_id)
 );
 
+-- Nested Albums
 CREATE TABLE album_album_join (
-    parent_id INT NOT NULL,
-    album_id INT NOT NULL,
+    parent_id UUID NOT NULL,
+    album_id UUID NOT NULL,
     PRIMARY KEY (parent_id, album_id),
     CONSTRAINT fk_album_album_parent
         FOREIGN KEY (parent_id) REFERENCES albums(id)

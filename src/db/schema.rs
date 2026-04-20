@@ -1,3 +1,4 @@
+// TODO: Replace diesel/maria with SeaORM/sqlite
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
