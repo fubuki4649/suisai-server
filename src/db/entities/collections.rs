@@ -3,29 +3,31 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "thumbnails")]
+#[sea_orm(table_name = "collections")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false, column_type = "Text")]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    #[sea_orm(column_type = "Text")]
-    pub thumbnail_path: String,
+    pub parent_id: Option<String>,
+    pub label: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::assets::Entity")]
+    Assets,
     #[sea_orm(
-        belongs_to = "super::photos::Entity",
-        from = "Column::Id",
-        to = "super::photos::Column::Id",
+        belongs_to = "Entity",
+        from = "Column::ParentId",
+        to = "Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    Photos,
+    SelfRef,
 }
 
-impl Related<super::photos::Entity> for Entity {
+impl Related<super::assets::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Photos.def()
+        Relation::Assets.def()
     }
 }
 

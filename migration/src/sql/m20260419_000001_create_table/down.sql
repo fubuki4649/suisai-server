@@ -1,6 +1,3 @@
-DROP TABLE album_album_join;
-DROP TABLE album_photo_join;
-DROP TABLE thumbnails;
-DROP TABLE sharing_states;
-DROP TABLE albums;
-DROP TABLE photos;
+-- This file should undo anything in `up.sql`
+DROP TABLE IF EXISTS collections;
+DROP TABLE IF EXISTS assets;

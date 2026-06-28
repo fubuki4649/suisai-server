@@ -1,5 +1,6 @@
 use crate::db::schema::thumbnails;
 use diesel::{AsChangeset, Queryable, Selectable};
+use sea_orm::DerivePartialModel;
 use serde::{Deserialize, Serialize};
 
 /// Represents a thumbnail, with the photo ID it's associated with and the path to the thumbnail on disk.
@@ -15,10 +16,11 @@ use serde::{Deserialize, Serialize};
 ///     directory: "/home/user/.thumbnails/202506/IMG_001.JPG".into(),
 /// };
 /// ```
-#[derive(Queryable, Selectable, AsChangeset, Serialize, Deserialize, Debug)]
+#[derive(DerivePartialModel, Queryable, Selectable, AsChangeset, Serialize, Deserialize, Debug)]
+#[sea_orm(entity = "crate::db::entities::thumbnails::Entity")]
 #[serde(rename_all = "camelCase")]
 pub struct Thumbnail {
     #[serde(rename = "photoId")]
-    pub id: i64,
+    pub id: String,
     pub thumbnail_path: String
 }

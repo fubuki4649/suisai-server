@@ -33,7 +33,7 @@ use rocket::{delete, get, patch, post};
 pub fn get_album_tree() -> Result<Json<AlbumTree>, (Status, Json<Value>)> {
     let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
     let mut tree = AlbumTree {
-        id: -1,
+        id: "-1",
         album_name: "Root Node - Not an Album!!!".to_string(),
         children: unwrap_err!(get_root_albums(&mut conn), Status::InternalServerError).into_iter().map(Into::into).collect(),
     };

@@ -22,6 +22,8 @@ pub fn create_album_fs(album_name: &str) -> Result<(), Error> {
     Ok(())
 }
 
+// TODO: We can use ls to find sub-album/photos, no need to pass children
+
 /// Deletes an album, moving its children to the root (albums) / unfiled (photos).
 ///
 /// # Arguments

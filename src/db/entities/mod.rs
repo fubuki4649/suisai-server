@@ -2,9 +2,5 @@
 
 pub mod prelude;
 
-pub mod album_album_join;
-pub mod album_photo_join;
-pub mod albums;
-pub mod photos;
-pub mod sharing_states;
-pub mod thumbnails;
+pub mod assets;
+pub mod collections;

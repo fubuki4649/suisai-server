@@ -21,7 +21,7 @@ use sea_orm::DerivePartialModel;
 #[serde(rename_all = "camelCase")]
 pub struct Album {
     #[serde(rename = "albumId")]
-    pub id: i32,
+    pub id: String,
     pub album_name: String
 }
 
@@ -29,7 +29,7 @@ pub struct Album {
 /// Represents an album as a tree node.
 ///
 /// # Fields
-/// * `id`: Album's unique ID, serialized as `albumId` in JSON
+/// * `id`: UUIDv7, serialized as `albumId` in JSON
 /// * `album_name`: Album name
 /// * `children`: Vec of child albums
 ///
@@ -45,7 +45,7 @@ pub struct Album {
 #[serde(rename_all = "camelCase")]
 pub struct AlbumTree {
     #[serde(rename = "albumId")]
-    pub id: i32,
+    pub id: String,
     pub album_name: String,
     pub children: Vec<AlbumTree>
 }
