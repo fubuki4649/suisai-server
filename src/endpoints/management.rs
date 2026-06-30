@@ -4,8 +4,8 @@ use crate::db::operations::join_album_album::{add_album_to_album, remove_album_f
 use crate::db::operations::join_album_photo::{add_photo_to_album, remove_photo_from_album};
 use crate::db::operations::paths::get_album_path;
 use crate::db::operations::photo::get_photo;
-use crate::fs_operations::album::move_album_fs;
-use crate::fs_operations::photo::move_photo_fs;
+use crate::fs_operations::collection::Collection;
+use crate::fs_operations::asset::Asset;
 use crate::{msg, unwrap_ret, DB_POOL};
 use diesel::result::Error;
 use rocket::http::Status;
@@ -44,7 +44,7 @@ pub fn unfile_photo(input: Json<Value>) -> (Status, Json<Value>) {
         };
 
         // Move photo and associated files
-        unwrap_ret!(move_photo_fs(&album_path.join(photo.file_name), Path::new("/unfiled")), Status::InternalServerError);
+        unwrap_ret!(Asset::new_without_thumb(&album_path.join(photo.file_name)).move_to(Path::new("/unfiled")), Status::InternalServerError);
         // Move photo and associated files
         unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
     }
@@ -87,7 +87,7 @@ pub fn reassign_photo(input: Json<Value>) -> (Status, Json<Value>) {
 
         // Move photo and associated files
         let dest_path = unwrap_ret!(get_album_path(&mut conn, album_id), Status::InternalServerError);
-        unwrap_ret!(move_photo_fs(&album_path.join(photo.file_name), &dest_path), Status::InternalServerError);
+        unwrap_ret!(Asset::new_without_thumb(&album_path.join(photo.file_name)).move_to(&dest_path), Status::InternalServerError);
 
         // Delete existing photo-album associations
         unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
@@ -122,7 +122,7 @@ pub fn unfile_album(input: Json<Value>) -> (Status, Json<Value>) {
     for album in albums {
         // Move album to root
         let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
-        unwrap_ret!(move_album_fs(&album_path, &Path::new("/").join(album.album_name)), Status::InternalServerError);
+        unwrap_ret!(Collection::new(&album_path).move_to(&Path::new("/").join(album.album_name)), Status::InternalServerError);
 
         // Reflect change in DB
         unwrap_ret!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);
@@ -158,7 +158,7 @@ pub fn reassign_album(input: Json<Value>) -> (Status, Json<Value>) {
         // Move album to new parent
         let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
         let dest_path = dest.join(album.album_name);
-        unwrap_ret!(move_album_fs(&album_path, &dest_path), Status::InternalServerError);
+        unwrap_ret!(Collection::new(&album_path).move_to(&dest_path), Status::InternalServerError);
 
         // Reflect changes in DB
         unwrap_ret!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);

@@ -1,2 +1,2 @@
-pub mod album;
-pub mod photo;
+pub mod collection;
+pub mod asset;

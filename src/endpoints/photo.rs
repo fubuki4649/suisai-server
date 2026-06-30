@@ -2,7 +2,7 @@ use crate::_utils::json_map::JsonMap;
 use crate::db::operations::paths::get_photo_path;
 use crate::db::operations::photo::{delete_photo, get_photo};
 use crate::db::operations::thumbnail::get_thumbnail;
-use crate::fs_operations::photo::delete_photo_fs;
+use crate::fs_operations::asset::Asset;
 use crate::models::photo::Photo;
 use crate::{msg, unwrap_err, unwrap_ret, DB_POOL};
 use rocket::http::Status;
@@ -36,7 +36,7 @@ pub fn del_photo(input: Json<Value>) -> (Status, Json<Value>) {
         let photo_path = unwrap_ret!(get_photo_path(&mut conn, photo.id), Status::InternalServerError);
         let thumb_path = unwrap_ret!(get_thumbnail(&mut conn, photo.id), Status::InternalServerError).thumbnail_path;
 
-        unwrap_ret!(delete_photo_fs(&photo_path, &PathBuf::from(thumb_path)), Status::InternalServerError);
+        unwrap_ret!(Asset::new(&photo_path, &PathBuf::from(thumb_path)).delete(), Status::InternalServerError);
     }
 
     (Status::Ok, msg!("Success"))
