@@ -1,7 +1,7 @@
 use crate::_utils::run_command::ShellReturn;
-use crate::models::photo::NewPhoto;
+use crate::models::asset::NewAsset;
 use crate::sh;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -19,21 +19,21 @@ use xxhash_rust::xxh3::xxh3_128;
 /// read, ensuring database operations won't fail due to missing EXIF data.
 ///
 /// The trait is primarily implemented for `PathBuf` to work directly with filesystem paths.
-pub trait SuisaiImagePath {
-    /// Gets the `xxh3_128` hash of the image
+pub trait SuisaiAsset {
+    /// Gets the `xxh3_128` content hash of the asset file
     fn get_hash(&self) -> String;
 
-    /// Size on disk of the image in KB
-    fn get_size_on_disk(&self) -> i32;
+    /// On-disk size of the asset in KB
+    fn get_size_on_disk(&self) -> i64;
 
-    /// The date/time the photo was taken, in local time
-    fn get_photo_date(&self) -> NaiveDateTime;
+    /// The date/time the photo was taken, in UTC
+    fn get_photo_date(&self) -> DateTime<Utc>;
 
     /// The timezone where the photo was taken, as a UTC offset. Defaults to JST (UTC+9).
     fn get_photo_timezone(&self) -> String;
 
-    /// Returns a `Vec<i32>` of length 2 representing the dimensions of the image (x, y)
-    fn get_resolution(&self) -> Vec<i16>;
+    /// Returns a `Vec<i64>` of length 2 representing the dimensions of the image (width, height)
+    fn get_resolution(&self) -> Vec<i64>;
 
     /// The MIME type of the image
     fn get_mime(&self) -> String;
@@ -46,13 +46,13 @@ pub trait SuisaiImagePath {
 
     /// The shutter count of the camera when the image was taken.
     /// Might not be unique for cameras with electronic shutter.
-    fn get_shutter_count(&self) -> i32;
+    fn get_shutter_count(&self) -> i64;
 
     /// The focal length used to take the image, in mm
     fn get_focal_length(&self) -> i16;
 
     /// ISO sensitivity of the camera when the image was taken
-    fn get_iso(&self) -> i32;
+    fn get_iso(&self) -> i64;
 
     /// The shutter speed used to take the photo. Usually expressed as a fraction.
     fn get_shutter_speed(&self) -> String;
@@ -60,34 +60,33 @@ pub trait SuisaiImagePath {
     /// The aperture setting (f-stop) used to take the photo
     fn get_aperture(&self) -> f32;
 
-    /// Returns a `crate::db::models::NewPhoto`. Does not populate the `thumbnail` field
-    fn to_db_entry(&self) -> NewPhoto;
+    /// Returns a `crate::models::asset::NewAsset`.
+    fn to_db_entry(&self) -> NewAsset;
 }
 
-impl SuisaiImagePath for PathBuf {
+impl SuisaiAsset for PathBuf {
     fn get_hash(&self) -> String {
         let data = fs::read(self).unwrap_or_default();
         let hash = xxh3_128(&data);
         format!("{hash:032x}")
     }
 
-    fn get_size_on_disk(&self) -> i32 {
+    fn get_size_on_disk(&self) -> i64 {
         let metadata = fs::metadata(self);
-        (match metadata {
-            Ok(metadata) => metadata.len().div_ceil(1024),
+        match metadata {
+            Ok(metadata) => metadata.len().div_ceil(1024) as i64,
             Err(_) => 0,
-        }) as i32
+        }
     }
 
-    fn get_photo_date(&self) -> NaiveDateTime {
+    fn get_photo_date(&self) -> DateTime<Utc> {
         let result: ShellReturn = sh!("exiftool -DateTimeOriginal -fast2 -s3 {}", self.to_string_lossy());
 
         if result.err_code == 0 && let Ok(ndt) = NaiveDateTime::parse_from_str(result.stdout.trim(), "%Y:%m:%d %H:%M:%S") {
-            return ndt;
+            return ndt.and_utc();
         }
 
-        #[allow(deprecated)]
-        NaiveDateTime::UNIX_EPOCH
+        DateTime::<Utc>::from_timestamp(0, 0).unwrap_or_default()
     }
 
     fn get_photo_timezone(&self) -> String {
@@ -107,20 +106,20 @@ impl SuisaiImagePath for PathBuf {
     }
 
 
-    fn get_resolution(&self) -> Vec<i16> {
+    fn get_resolution(&self) -> Vec<i64> {
         let result = sh!("exiftool -fast2 -s3 -ImageWidth -ImageHeight {}", self.to_string_lossy());
 
         if result.err_code == 0 {
             let lines: Vec<&str> = result.stdout.lines().collect();
             if lines.len() >= 2 {
                 return vec![
-                    lines[0].trim().parse::<i16>().unwrap_or(0),
-                    lines[1].trim().parse::<i16>().unwrap_or(0),
+                    lines[0].trim().parse::<i64>().unwrap_or(0),
+                    lines[1].trim().parse::<i64>().unwrap_or(0),
                 ];
             }
         }
 
-        vec![0,0]
+        vec![0, 0]
     }
 
     fn get_mime(&self) -> String {
@@ -160,14 +159,14 @@ impl SuisaiImagePath for PathBuf {
         }
     }
 
-    fn get_shutter_count(&self) -> i32 {
+    fn get_shutter_count(&self) -> i64 {
         let tags = ["ImageCount", "ShutterCount", "Canon:ShutterCount"];
 
         // Try a bunch of tags because metadata may be inconsistent across various camera brands
         for tag in tags {
             let result = sh!("exiftool -s3 -fast1 -{} {}", tag, self.to_string_lossy());
 
-            if result.err_code == 0 && let Ok(count) = result.stdout.trim().parse::<i32>() && count != 0 {
+            if result.err_code == 0 && let Ok(count) = result.stdout.trim().parse::<i64>() && count != 0 {
                 return count;
             }
         }
@@ -189,11 +188,11 @@ impl SuisaiImagePath for PathBuf {
     }
 
 
-    fn get_iso(&self) -> i32 {
+    fn get_iso(&self) -> i64 {
         let result = sh!("exiftool -s3 -fast2 -ISO {}", self.to_string_lossy());
 
         match result.err_code {
-            0 => result.stdout.split_whitespace().next().unwrap_or("0").parse::<i32>().unwrap_or(0),
+            0 => result.stdout.split_whitespace().next().unwrap_or("0").parse::<i64>().unwrap_or(0),
             _ => 0,
         }
     }
@@ -217,15 +216,18 @@ impl SuisaiImagePath for PathBuf {
         }
     }
 
-    fn to_db_entry(&self) -> NewPhoto {
-        NewPhoto {
+    fn to_db_entry(&self) -> NewAsset {
+        let resolution = self.get_resolution();
+        NewAsset {
+            parent_id: None,
+            thumbnail_path: None,
             hash: self.get_hash(),
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
             size_on_disk: self.get_size_on_disk(),
             photo_date: self.get_photo_date(),
             photo_timezone: self.get_photo_timezone(),
-            resolution_width: self.get_resolution()[0],
-            resolution_height: self.get_resolution()[1],
+            resolution_width: resolution[0],
+            resolution_height: resolution[1],
             mime_type: self.get_mime(),
             camera_model: self.get_camera_model(),
             lens_model: self.get_lens_model(),

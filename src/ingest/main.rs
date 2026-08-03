@@ -1,25 +1,24 @@
-use crate::db::operations::photo::{check_hash, create_photo};
-use crate::db::operations::thumbnail::create_thumbnail;
-use crate::ingest::extract_thumbnail::extract_thumbnail_full;
-use crate::ingest::get_image_paths::get_image_paths;
-use crate::ingest::trait_suisai_image_path::SuisaiImagePath;
-use crate::models::thumbnail::Thumbnail;
-use crate::DB_POOL;
+use crate::db::operations::asset::{check_hash, new_asset};
+use crate::ingest::helpers::extract_thumbnail::extract_thumbnail_full;
+use crate::ingest::helpers::search_path::search_path_for_assets;
+use crate::ingest::traits::SuisaiAsset;
 use chrono::Datelike;
 use rocket::serde::json::serde_json;
+use sea_orm::DatabaseConnection;
 use std::env;
 use std::fs::{copy, create_dir_all, rename};
 use std::path::Path;
 
-/// Ingests images from a directory into the photo library, including database storage and thumbnail generation
-pub fn ingest(path: String, dry: bool, no_preserve: bool) {
+
+/// Ingests photos from a directory as a suisai asset, including database storage and thumbnail generation
+pub fn ingest(db: &DatabaseConnection, path: String, dry: bool, no_preserve: bool) {
     println!("Ingesting files from: {path}");
     if dry {
         println!("Running in dry mode");
     }
 
     // Get a list of images from the source directory 
-    let paths = get_image_paths(Path::new(&path));
+    let paths = search_path_for_assets(Path::new(&path));
 
     // In dry run mode, just print what would happen without making changes
     if dry {
@@ -29,8 +28,7 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
         return;
     }
 
-    // Initialize DB connection and set up storage paths
-    let mut conn = DB_POOL.get().expect("Failed to get connection from pool");
+    // Initialize storage paths
     let raw_storage_dir = format!("{}/", env::var("STORAGE_ROOT").unwrap());
     let raw_storage_path = Path::new(&raw_storage_dir);
 
@@ -38,7 +36,8 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
     for path in paths {
         // Skip if this image is already in the database
         let hash = path.get_hash();
-        if check_hash(&mut conn, &hash).unwrap_or_else(|_| panic!("Database error while checking hash: {hash}")).is_some() {
+
+        if check_hash(&db, &hash).is_err() {
             println!("Hash {hash} already exists in database, skipping");
             continue;
         }
@@ -80,12 +79,13 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
             }
         }
 
-        // Create a database record for the image
-        let photo = new_path.to_db_entry();
-        println!("{}", serde_json::to_string_pretty(&photo).unwrap());
+        // Create a database record for the asset
+        let mut asset = new_path.to_db_entry();
+        asset.thumbnail_path = Some(thumbnail_path);
+        println!("{}", serde_json::to_string_pretty(&asset).unwrap());
 
-        println!("Adding {} to database", photo.file_name);
-        let photo_id = match create_photo(&mut conn, photo) {
+        println!("Adding {} to database", asset.file_name);
+        let new_asset_id = match new_asset(&db, asset) {
             Err(e) => {
                 println!("Error: {e}");
                 return;
@@ -93,13 +93,7 @@ pub fn ingest(path: String, dry: bool, no_preserve: bool) {
             Ok(id) => id
         };
 
-        // Create a database record for the thumbnail, if any
-        if !thumbnail_path.is_empty() {
-            let thumbnail = Thumbnail { id: photo_id, thumbnail_path };
-            create_thumbnail(&mut conn, &thumbnail).unwrap_or_else(|e| println!("Error: {e}"));
-        }
-
-        println!("Done");
+        println!("Created asset with database ID {new_asset_id}");
 
     }
 

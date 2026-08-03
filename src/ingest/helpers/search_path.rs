@@ -1,12 +1,8 @@
-use infer::get_from_path;
-use infer::MatcherType::Image;
 use std::path::{Path, PathBuf};
+use infer::MatcherType::Image;
+use infer::get_from_path;
 
-
-/// Recursively traverses a directory to find all image files within
-///
-/// This function walks through the provided path and all subdirectories to identify
-/// and collect paths to image files based on their file type.
+/// Recursively traverses a directory to return a list of all applicable assets inside
 ///
 /// # Arguments
 ///
@@ -14,15 +10,15 @@ use std::path::{Path, PathBuf};
 ///
 /// # Returns
 ///
-/// A vector of `PathBuf` containing paths to all found image files
+/// A vector of `PathBuf` containing paths to all found applicable assets (currently, just image files)
 ///
-pub fn get_image_paths(src: &Path) -> Vec<PathBuf> {
+pub fn search_path_for_assets(src: &Path) -> Vec<PathBuf> {
     let mut v = Vec::new();
-    get_paths_recurse(src, &mut v);
+    search_path_recurse(src, &mut v);
     v
 }
 
-fn get_paths_recurse(src: &Path, paths: &mut Vec<PathBuf>) {
+fn search_path_recurse(src: &Path, paths: &mut Vec<PathBuf>) {
     if src.is_file() {
         // Check if file is an image using infer's type detection and matcher comparison
         if Some(Image) == get_from_path(src).ok().flatten().map(|t| t.matcher_type()) {
@@ -35,7 +31,7 @@ fn get_paths_recurse(src: &Path, paths: &mut Vec<PathBuf>) {
             // Iterate through directory entries, skipping any that return errors
             for child in read_dir.flatten() {
                 // Recursively process each child path
-                get_paths_recurse(child.path().as_path(), paths);
+                search_path_recurse(child.path().as_path(), paths);
             }
         }
     }

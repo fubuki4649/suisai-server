@@ -77,6 +77,7 @@ impl From<assets::Model> for Asset {
 ///
 /// # Fields
 /// - `parent_id` (`Option<String>`): Optional parent collection ID
+/// - `thumbnail_path` (`Option<String>`): Path to the generated thumbnail, if any
 /// - `hash` (`String`): xxh3-128 hash value of the asset, used to ensure uniqueness
 /// - `file_name` (`String`): Original filename of the asset
 /// - `size_on_disk` (`i64`): Size of the asset on disk in Bytes
@@ -95,6 +96,7 @@ impl From<assets::Model> for Asset {
 #[derive(Debug)]
 pub struct NewAsset {
     pub parent_id: Option<String>,
+    pub thumbnail_path: Option<String>,
     pub hash: String,
     pub file_name: String,
     pub size_on_disk: i64,

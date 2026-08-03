@@ -17,7 +17,7 @@ pub async fn new_asset(db: &DatabaseConnection, asset: NewAsset) -> Result<Strin
     let active_model = assets::ActiveModel {
         id: Set(id.clone()),
         parent_id: Set(asset.parent_id),
-        thumbnail_path: Set(None),
+        thumbnail_path: Set(asset.thumbnail_path),
         hash: Set(asset.hash),
         file_name: Set(asset.file_name),
         size_on_disk: Set(asset.size_on_disk),
@@ -127,6 +127,28 @@ pub async fn get_asset_thumbnail(db: &DatabaseConnection, asset_id: String) -> R
 
     thumbnail.ok_or_else(|| DbErr::RecordNotFound(format!("Asset {} not found", asset_id)))
 }
+
+/// Checks if a hash exists in the database
+///
+/// # Arguments
+/// * `db` - Database connection
+/// * `incoming_hash` - UUID of the asset
+///
+/// # Returns
+/// `Ok` if `incoming_hash` doesn't already exist; `DbErr` otherwise
+pub async fn check_hash(db: &DatabaseConnection, incoming_hash: &str) -> Result<(), DbErr> {
+    let hash: Option<String> = assets::Entity::find()
+        .filter(assets::Column::Hash.eq(incoming_hash))
+        .into_tuple()
+        .one(db)
+        .await?;
+
+    match hash {
+        Some(_) => Err(DbErr::Custom(format!("Asset with hash {} already exists", incoming_hash))),
+        None => Ok(()),
+    }
+}
+
 
 /// Gets assets by their IDs
 ///
