@@ -135,18 +135,16 @@ pub async fn get_asset_thumbnail(db: &DatabaseConnection, asset_id: String) -> R
 /// * `incoming_hash` - UUID of the asset
 ///
 /// # Returns
-/// `Ok` if `incoming_hash` doesn't already exist; `DbErr` otherwise
-pub async fn check_hash(db: &DatabaseConnection, incoming_hash: &str) -> Result<(), DbErr> {
-    let hash: Option<String> = assets::Entity::find()
+/// `Ok(None)` if `incoming_hash` doesn't already exist; `Ok(Some(asset))` with the matching asset 
+/// if `incoming_hash` exits; `Err(DbErr)` otherwise
+pub async fn check_hash(db: &DatabaseConnection, incoming_hash: &str) -> Result<Option<Asset>, DbErr> {
+    let hash: Option<Asset> = assets::Entity::find()
         .filter(assets::Column::Hash.eq(incoming_hash))
-        .into_tuple()
+        .into_partial_model::<Asset>()
         .one(db)
         .await?;
 
-    match hash {
-        Some(_) => Err(DbErr::Custom(format!("Asset with hash {} already exists", incoming_hash))),
-        None => Ok(()),
-    }
+    Ok(hash)
 }
 
 

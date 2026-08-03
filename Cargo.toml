@@ -8,23 +8,26 @@ diesel = { version = "2.3.3", features = ["mysql", "r2d2", "chrono"] }
 dotenvy = "0.15.7"
 r2d2 = "0.8.10"
 
-sea-orm = { version = "2.0.0-rc.38", features = [
+sea-orm = { version = "2.0.1", features = [
     "sqlx-sqlite",
     "runtime-tokio-rustls",
     "macros",
     "with-uuid"
 ] }
 # Ensure you have the UUID crate with v7 enabled
-uuid = { version = "1.23.1", features = ["v7", "serde"] }
+uuid = { version = "1.24.0", features = ["v7", "serde"] }
 
 
 chrono = { version = "0.4.42", features = ["serde"] }
 rocket = { version = "0.5.1", features = ["json"] }
-anyhow = "1.0.100"
-serde = "1.0.228"
-clap = { version = "4.5.51", features = ["derive"] }
-rocket_cors = "0.6.0"
-infer = "0.19.0"
-xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
+anyhow = "1.0.104"
+serde = "1.0.229"
+clap = { version = "4.6.5", features = ["derive"] }
+infer = "0.22.0"
+xxhash-rust = { version = "0.8.18", features = ["xxh3"] }
 Inflector = { version = "0.11.4", default-features = false }
 serde_json = "1.0.145"
+axum = "0.8.9"
+tokio = { version = "1.43.1", features = ["full"] }
+tower-http = { version = "0.7.0", features = ["fs", "cors"] }
+tower = "0.5.3"

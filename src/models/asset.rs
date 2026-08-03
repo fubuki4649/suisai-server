@@ -1,6 +1,7 @@
 use crate::db::entities::assets;
 use chrono::DateTime;
 use chrono::Utc;
+use serde::Serialize;
 
 /// Represents an asset with associated metadata stored in the database.
 ///
@@ -93,7 +94,7 @@ impl From<assets::Model> for Asset {
 /// - `iso` (`i64`): ISO sensitivity value
 /// - `shutter_speed` (`String`): Exposure time as a string (e.g. "1/250")
 /// - `aperture` (`f32`): F-stop value used
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct NewAsset {
     pub parent_id: Option<String>,
     pub thumbnail_path: Option<String>,

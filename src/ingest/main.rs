@@ -37,9 +37,13 @@ pub fn ingest(db: &DatabaseConnection, path: String, dry: bool, no_preserve: boo
         // Skip if this image is already in the database
         let hash = path.get_hash();
 
-        if check_hash(&db, &hash).is_err() {
-            println!("Hash {hash} already exists in database, skipping");
-            continue;
+        match check_hash(&db, &hash) {
+            Ok(Some(_)) => {
+                println!("Hash {hash} already exists in database, skipping");
+                continue;
+            },
+            Ok(None) => (),
+            Err(e) => panic!("Database Error: {}", e),
         }
 
         // Prepare destination directory (`$STORAGE_ROOT/unfiled`), creating it if necessary

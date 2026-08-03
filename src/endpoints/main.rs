@@ -1,59 +1,38 @@
-use crate::endpoints::album::*;
-use crate::endpoints::management::*;
 use crate::endpoints::meow::health_check;
-use crate::endpoints::photo::*;
 use crate::endpoints::thumbnail::get_thumbnail;
 use crate::preflight::check_directories;
-use rocket::routes;
-use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
-use std::str::FromStr;
+use crate::state::AppState;
+use axum::{routing::get, Router};
+use tower_http::cors::CorsLayer;
 
-pub async fn start_webserver() {
-
-    // Run preflight checks
+/// Initializes and launches the Axum HTTP web server.
+///
+/// Runs system preflight checks, mounts all API route handlers onto the Axum router,
+/// attaches the global `AppState` (containing database pools and handles), and binds
+/// to port `8000`.
+///
+/// # Arguments
+/// * `state` - The application state instance containing SeaORM database connection
+pub async fn start_webserver(state: AppState) {
+    // Run preflight checks (directory validation & setup)
     check_directories().unwrap();
 
-    // Set CORS options
-    let cors = CorsOptions {
-        allowed_origins: AllowedOrigins::all(),
-        allowed_methods: ["Get", "Post", "Put", "Patch", "Delete"]
-            .iter()
-            .map(|s| FromStr::from_str(s).unwrap())
-            .collect(),
-        allowed_headers: AllowedHeaders::all(),
-        ..Default::default()
-    }
-    .to_cors()
-    .expect("Failed to create CORS");
+    // Build the Axum router and attach routes & shared AppState
+    let app = Router::new()
+        .route("/meow", get(health_check))
+        .route("/thumbnail/{hash}", get(get_thumbnail))
+        .layer(CorsLayer::permissive())
+        .with_state(state);
 
-    // Start server with appropriate endpoints
-    rocket::build().attach(cors).mount("/", routes![
-        // General
-        health_check,
-        
-        // Album endpoints
-        get_album_tree,
-        get_album_flat,
-        new_album,
-        rename_album,
-        del_album,
+    // Bind TCP listener on port 8000
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
+        .await
+        .expect("Failed to bind to address 0.0.0.0:8000");
 
-        // Album queries
-        album_photos,
-        unfiled_photos,
+    println!("Server running on http://0.0.0.0:8000");
 
-        // Photo endpoints
-        del_photo,
-        get_photos,
-        
-        // Photo/album management endpoints
-        unfile_photo,
-        reassign_photo,
-        unfile_album,
-        reassign_album,
-        
-        // Thumbnail serving endpoints
-        get_thumbnail,
-    ]).launch().await.expect("Failed to launch server");
-
+    // Start serving requests
+    axum::serve(listener, app)
+        .await
+        .expect("Failed to launch server");
 }

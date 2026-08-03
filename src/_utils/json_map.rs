@@ -1,22 +1,23 @@
 //! This module provides a trait `JsonMap` to simplify accessing and deserializing values
-//! from a `Json<Value>` object in Rocket. It enables retrieving keys and their associated 
+//! from an `axum::Json<Value>` object. It enables retrieving keys and their associated 
 //! values from the JSON payload with proper error handling.
 
+use axum::Json;
 use inflector::Inflector;
-use rocket::serde::json::{serde_json, Json, Value};
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 
 pub trait JsonMap {
     fn get_value<T>(&self, key: &str) -> anyhow::Result<T> where T: DeserializeOwned;
 }
 
 impl JsonMap for Json<Value> {
-    /// Retrieves and deserializes the value associated with the given key from a `Json<Value>`.
+    /// Retrieves and deserializes the value associated with the given key from an `axum::Json<Value>`.
     /// 
     /// **The `key` is automatically renamed to camelCase**
     ///
     /// This utility function simplifies extraction of typed data from JSON payloads
-    /// in Rocket requests, reducing boilerplate to a single line. It returns a deserialized
+    /// in requests, reducing boilerplate to a single line. It returns a deserialized
     /// value of the specified type or an error if the key is missing or the type conversion fails.
     ///
     /// # Example

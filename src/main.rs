@@ -34,7 +34,7 @@ fn establish_connection_pool() -> Pool {
 }
 
 
-#[rocket::main]
+#[tokio::main]
 async fn main() {
     dotenv().ok();
     let db = sea_orm::Database::connect(env::var("DATABASE_URL").expect("DATABASE_URL must be set")).await.unwrap();
@@ -46,5 +46,5 @@ async fn main() {
     check_directories().unwrap();
 
     // TODO: REPLACE CLI
-    run_cli().await;
+    run_cli(state).await;
 }

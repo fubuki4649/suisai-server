@@ -1,7 +1,8 @@
 use crate::endpoints::main::start_webserver;
 use crate::ingest::main::ingest;
+use crate::state::AppState;
 use clap::{Parser, Subcommand};
-use rocket::tokio;
+use tokio;
 
 #[derive(Parser)]
 #[command(name = "suisai", version = "1.0", about = "Backend server for suisai")]
@@ -27,19 +28,19 @@ enum Commands {
     }
 }
 
-pub async fn run_cli() {
+pub async fn run_cli(state: AppState) {
     let cli = Cli::parse();
 
     match cli.command {
         Commands::StartServer { } => {
             // Spawn the endpoints on its own async task
             let web_handle = tokio::spawn(async move {
-                start_webserver().await;
+                start_webserver(state).await;
             });
 
             // Await the endpoints to keep the process alive
             let _ = web_handle.await;
         }
-        Commands::Ingest { source, dry, no_preserve } => ingest(source, dry, no_preserve),
+        Commands::Ingest { source, dry, no_preserve } => ingest(&state.db, source, dry, no_preserve),
     }
 }
