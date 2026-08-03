@@ -1,3 +1,4 @@
+use crate::endpoints::assets::{del_asset, get_assets_handler};
 use crate::endpoints::meow::health_check;
 use crate::endpoints::thumbnail::get_thumbnail;
 use crate::preflight::check_directories;
@@ -21,6 +22,8 @@ pub async fn start_webserver(state: AppState) {
     let app = Router::new()
         .route("/meow", get(health_check))
         .route("/thumbnail/{hash}", get(get_thumbnail))
+        .route("/asset/get", axum::routing::post(get_assets_handler))
+        .route("/asset/delete", axum::routing::delete(del_asset))
         .layer(CorsLayer::permissive())
         .with_state(state);
 
