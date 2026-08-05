@@ -2,18 +2,21 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::Value;
+use std::path::Path;
+
 use crate::_utils::json_map::JsonMap;
 use crate::db::operations::asset::{delete_asset, get_assets};
+use crate::db::operations::paths::get_collection_path;
+use crate::fs_operations::asset::Asset as FsAsset;
 use crate::models::asset::Asset;
 use crate::{msg, state::AppState};
-
 
 type Response = Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)>;
 
 /// Delete multiple assets from the database by their IDs
 ///
-/// Also removes associated thumbnail files from the filesystem; missing files are silently ignored.
-/// Note: raw asset files are not tracked by path in the DB — only thumbnails are cleaned up here.
+/// Removes the asset file (and any associated sidecar/export files with the same stem),
+/// the thumbnail, and cleans up empty thumbnail directories.
 ///
 /// # Route
 /// `DELETE /asset/delete`
@@ -23,9 +26,9 @@ type Response = Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)>;
 /// - `assetIds`: array of asset UUID strings to delete
 ///
 /// # Returns
-/// - `200 OK` on success (even if some IDs didn't exist)
+/// - `200 OK` on success
 /// - `400 Bad Request` if `assetIds` is missing or malformed
-/// - `500 Internal Server Error` if deletion fails
+/// - `500 Internal Server Error` if the database deletion or any filesystem operation fails
 pub async fn del_asset(State(state): State<AppState>, input: Json<Value>) -> Response {
     let asset_ids = input.get_value::<Vec<String>>("asset_ids")
         .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
@@ -33,10 +36,21 @@ pub async fn del_asset(State(state): State<AppState>, input: Json<Value>) -> Res
     let deleted = delete_asset(&state.db, asset_ids).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-    // Clean up thumbnails from the filesystem, ignoring missing/permission errors
-    deleted.iter()
-        .filter_map(|a| a.thumbnail_path.as_deref())
-        .for_each(|path| { let _ = std::fs::remove_file(path); });
+    // Delete each asset and its associated files from disk
+    for asset in deleted {
+        // Get the full path to the asset, so we can delete it from the disk
+        let mut asset_path = match asset.parent_id {
+            Some(parent_id) => get_collection_path(&state.db, parent_id).await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?,
+            None => std::path::PathBuf::new(),
+        };
+        asset_path.push(&asset.file_name);
+
+        match asset.thumbnail_path {
+            Some(ref thumb) => FsAsset::new(&asset_path, Path::new(thumb)).delete(),
+            None => FsAsset::new_without_thumb(&asset_path).delete(),
+        }.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+    }
 
     Ok((StatusCode::OK, msg!("Success")))
 }

@@ -89,3 +89,17 @@ pub async fn get_collections_by_parent(db: &DatabaseConnection, parent_id: Optio
     };
     query.into_partial_model::<Collection>().all(db).await
 }
+
+/// Gets all collections in a flat list
+///
+/// # Arguments
+/// * `db` - Database connection
+///
+/// # Returns
+/// A list of all collections, or an error
+pub async fn get_all_collections(db: &DatabaseConnection) -> Result<Vec<Collection>, DbErr> {
+    collections::Entity::find()
+        .into_partial_model::<Collection>()
+        .all(db)
+        .await
+}

@@ -1,6 +1,5 @@
-pub mod album;
 pub mod assets;
-pub mod photo;
+pub mod collection;
 pub mod management;
 pub mod thumbnail;
 pub mod main;
