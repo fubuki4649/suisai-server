@@ -10,23 +10,38 @@ Backend server for suisai
 
 ## Dependencies
 
-- `exiftool` - for extracting exif data
+- `exiftool` - for extracting EXIF metadata
 - `dcraw` - for reading raw files (thumbnail generation)
-- `cjpeg` - for encoding to jpeg (thumbnail generation)
-- `libmariadbclient` - for connecting to mariadb
+- `cjpeg` - for encoding to JPEG (thumbnail generation)
 
 ## Setup
 
-Set up MariaDB, and make a copy of `example.env` as `.env`, and fill in the fields
+Make a copy of `example.env` as `.env`, and fill in the fields:
 
-Then, install the Diesel CLI and run migrations to create the necessary tables and columns
+```bash
+cp example.env .env
+```
 
-    cargo install diesel_cli --no-default-features --features mysql
-    diesel migration run
+Ensure `STORAGE_ROOT`, `THUMBNAIL_ROOT`, and `DATABASE_URL` are configured properly.
+
+For SQLite, set `DATABASE_URL` in `.env`:
+
+```env
+DATABASE_URL="sqlite://suisai.db?mode=rwc"
+```
+
+The database file and tables (`collections` & `assets`) are automatically created by SeaORM on initial server startup.
 
 ## Development
 
-To regenerate the schema after running migrations,
+Start the web server (powered by Axum & SeaORM):
 
-    diesel print-schema > src/db/schema.rs
+```bash
+cargo run -- start-server
+```
 
+Ingest raw photo files from a directory:
+
+```bash
+cargo run -- ingest /path/to/raws
+```
