@@ -41,6 +41,6 @@ pub async fn run_cli(state: AppState) {
             // Await the endpoints to keep the process alive
             let _ = web_handle.await;
         }
-        Commands::Ingest { source, dry, no_preserve } => ingest(&state.db, source, dry, no_preserve),
+        Commands::Ingest { source, dry, no_preserve } => ingest(&state.db, source, dry, no_preserve).await,
     }
 }

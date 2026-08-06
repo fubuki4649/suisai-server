@@ -24,7 +24,7 @@ use serde::Serialize;
 /// - `iso` (`i64`): ISO sensitivity value
 /// - `shutter_speed` (`String`): Exposure time as a string (e.g. "1/250")
 /// - `aperture` (`f32`): F-stop value used
-#[derive(Debug, sea_orm::prelude::DerivePartialModel)]
+#[derive(Debug, Serialize, sea_orm::prelude::DerivePartialModel)]
 #[sea_orm(entity = "assets::Entity")]
 pub struct Asset {
     pub id: String,

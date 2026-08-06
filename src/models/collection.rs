@@ -1,4 +1,5 @@
 use crate::db::entities::collections;
+use serde::Serialize;
 
 /// Represents a collection with a unique identifier and label.
 ///
@@ -6,7 +7,7 @@ use crate::db::entities::collections;
 /// * `id`: Collection's unique UUIDv7
 /// * `label`: Collection label
 /// * `parent_id`: Optional parent collection ID
-#[derive(Debug, sea_orm::prelude::DerivePartialModel)]
+#[derive(Debug, Serialize, sea_orm::prelude::DerivePartialModel)]
 #[sea_orm(entity = "collections::Entity")]
 pub struct Collection {
     pub id: String,

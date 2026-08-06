@@ -109,24 +109,6 @@ pub async fn update_asset(db: &DatabaseConnection, asset_id: String, update: Upd
     Ok(updated.into())
 }
 
-/// Gets the thumbnail path for a single asset
-///
-/// # Arguments
-/// * `db` - Database connection
-/// * `asset_id` - UUID of the asset
-///
-/// # Returns
-/// The thumbnail path if set, `None` if not yet generated, or an error if the asset doesn't exist
-pub async fn get_asset_thumbnail(db: &DatabaseConnection, asset_id: String) -> Result<Option<String>, DbErr> {
-    let thumbnail: Option<Option<String>> = assets::Entity::find_by_id(asset_id.clone())
-        .select_only()
-        .column(assets::Column::ThumbnailPath)
-        .into_tuple()
-        .one(db)
-        .await?;
-
-    thumbnail.ok_or_else(|| DbErr::RecordNotFound(format!("Asset {} not found", asset_id)))
-}
 
 /// Checks if a hash exists in the database
 ///
@@ -135,7 +117,7 @@ pub async fn get_asset_thumbnail(db: &DatabaseConnection, asset_id: String) -> R
 /// * `incoming_hash` - UUID of the asset
 ///
 /// # Returns
-/// `Ok(None)` if `incoming_hash` doesn't already exist; `Ok(Some(asset))` with the matching asset 
+/// `Ok(None)` if `incoming_hash` doesn't already exist; `Ok(Some(asset))` with the matching asset
 /// if `incoming_hash` exits; `Err(DbErr)` otherwise
 pub async fn check_hash(db: &DatabaseConnection, incoming_hash: &str) -> Result<Option<Asset>, DbErr> {
     let hash: Option<Asset> = assets::Entity::find()
