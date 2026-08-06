@@ -110,7 +110,7 @@ pub async fn new_collection_handler(State(state): State<AppState>, input: Json<V
         None => std::path::PathBuf::new(),
     };
 
-    // Create the directory on disk (path is relative to $STORAGE_ROOT, which Collection::create handles internally)
+    // Create the directory on disk (path is relative to `$STORAGE_ROOT`, which Collection::create handles internally)
     FsCollection::create(&parent_path.join(&label).to_string_lossy())
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 

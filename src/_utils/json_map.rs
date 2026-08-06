@@ -36,6 +36,6 @@ impl JsonMap for Json<Value> {
             return Ok(result)
         }
 
-        Err(anyhow::anyhow!("Key \"{}\" not found in JSON", camel_key))
+        Err(anyhow::anyhow!("Key \"{camel_key}\" not found in JSON"))
     }
 }

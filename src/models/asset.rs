@@ -6,7 +6,7 @@ use serde::Serialize;
 /// Represents an asset with associated metadata stored in the database.
 ///
 /// # Fields
-/// - `id` (`String`): UUIDv7. Serialized as "assetId" in JSON
+/// - `id` (`String`): `UUIDv7`. Serialized as "assetId" in JSON
 /// - `parent_id` (`Option<String>`): Optional parent collection ID
 /// - `thumbnail_path` (`Option<String>`): Path to the generated thumbnail, if any
 /// - `hash` (`String`): xxh3-128 hash value of the asset, used to ensure uniqueness
@@ -74,7 +74,7 @@ impl From<assets::Model> for Asset {
 
 /// A variant of `Asset` without an `id` field, used for creating new asset instances.
 ///
-/// IDs are auto-generated as UUIDv7 on insert.
+/// IDs are auto-generated as `UUIDv7` on insert.
 ///
 /// # Fields
 /// - `parent_id` (`Option<String>`): Optional parent collection ID

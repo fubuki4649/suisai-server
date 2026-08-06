@@ -42,7 +42,7 @@ pub async fn ingest(db: &DatabaseConnection, path: String, dry: bool, no_preserv
                 continue;
             },
             Ok(None) => (),
-            Err(e) => panic!("Database Error: {}", e),
+            Err(e) => panic!("Database Error: {e}"),
         }
 
         // Prepare destination directory (`$STORAGE_ROOT/unfiled`), creating it if necessary

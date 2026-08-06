@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 
 
 /// Represents a collection (album/directory) on the filesystem, identified by its path relative
-/// to $STORAGE_ROOT.
+/// to `$STORAGE_ROOT`.
 pub struct Collection {
-    /// Path to the collection directory, relative to $STORAGE_ROOT
+    /// Path to the collection directory, relative to `$STORAGE_ROOT`
     pub collection_path: PathBuf,
 }
 
@@ -63,7 +63,7 @@ impl Collection {
     /// Moves the entire collection (and its children) to a new location.
     ///
     /// # Arguments
-    /// * `destination_path` - Path to the destination, relative to $STORAGE_ROOT. This must not be
+    /// * `destination_path` - Path to the destination, relative to `$STORAGE_ROOT`. This must not be
     ///   a child of the collection's current path.
     ///
     /// # Returns
@@ -114,7 +114,7 @@ impl Collection {
         }
 
         // Make sure the destination's parent exists and is a directory
-        if !dest_path.parent().map(|parent| parent.is_dir()).unwrap_or(false) {
+        if !dest_path.parent().is_some_and(std::path::Path::is_dir) {
             return Err(Error::new(std::io::ErrorKind::NotFound, format!("Destination collection directory {} not found", destination_path.display())));
         }
 

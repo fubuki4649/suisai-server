@@ -1,7 +1,7 @@
 use crate::db::entities::collections;
 use crate::models::collection::{Collection, NewCollection, UpdateCollection};
 use crate::patch_fields;
-use sea_orm::{entity::*, DatabaseConnection, DbErr, QueryFilter, Set};
+use sea_orm::{entity::{EntityTrait, ActiveModelTrait, ColumnTrait}, DatabaseConnection, DbErr, QueryFilter, Set};
 
 /// Creates a new collection in the database
 ///
@@ -38,7 +38,7 @@ pub async fn delete_collection(db: &DatabaseConnection, collection_id: String) -
     let collection = collections::Entity::find_by_id(collection_id.clone())
         .one(db)
         .await?
-        .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {} not found", collection_id)))?;
+        .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {collection_id} not found")))?;
 
     // Delete
     collections::Entity::delete_by_id(collection_id).exec(db).await?;
@@ -59,7 +59,7 @@ pub async fn update_collection(db: &DatabaseConnection, collection_id: String, u
     let existing = collections::Entity::find_by_id(collection_id.clone())
         .one(db)
         .await?
-        .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {} not found", collection_id)))?;
+        .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {collection_id} not found")))?;
 
     let mut active_model: collections::ActiveModel = existing.into();
 

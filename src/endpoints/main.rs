@@ -15,7 +15,7 @@ use tower_http::cors::CorsLayer;
 /// to port `8000`.
 ///
 /// # Arguments
-/// * `state` - The application state instance containing SeaORM database connection
+/// * `state` - The application state instance containing `SeaORM` database connection
 pub async fn start_webserver(state: AppState) {
     // Run preflight checks (directory validation & setup)
     check_directories().unwrap();

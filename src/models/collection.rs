@@ -4,7 +4,7 @@ use serde::Serialize;
 /// Represents a collection with a unique identifier and label.
 ///
 /// # Fields
-/// * `id`: Collection's unique UUIDv7
+/// * `id`: Collection's unique `UUIDv7`
 /// * `label`: Collection label
 /// * `parent_id`: Optional parent collection ID
 #[derive(Debug, Serialize, sea_orm::prelude::DerivePartialModel)]

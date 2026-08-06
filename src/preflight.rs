@@ -8,7 +8,7 @@ use std::path::PathBuf;
 /// This function verifies that all necessary directories exist under `$STORAGE_ROOT`:
 /// - thumbs/ : For storing thumbnail images
 /// - raws/ : For storing raw photo files
-/// - associated_files/ : For storing associated metadata files
+/// - `associated_files`/ : For storing associated metadata files
 ///
 /// Creates any missing directories as needed. Returns error if `$STORAGE_ROOT` is not set
 /// or if expected paths exist but are not directories.

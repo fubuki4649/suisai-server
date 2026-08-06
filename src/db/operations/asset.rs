@@ -1,7 +1,7 @@
 use crate::db::entities::assets;
 use crate::models::asset::{Asset, NewAsset, UpdateAsset};
 use crate::patch_fields;
-use sea_orm::{entity::*, DatabaseConnection, DbErr, QueryFilter, Set};
+use sea_orm::{entity::{EntityTrait, ActiveModelTrait, ColumnTrait}, DatabaseConnection, DbErr, QueryFilter, Set};
 
 /// Creates a new asset in the database
 ///
@@ -81,7 +81,7 @@ pub async fn update_asset(db: &DatabaseConnection, asset_id: String, update: Upd
     let existing = assets::Entity::find_by_id(asset_id.clone())
         .one(db)
         .await?
-        .ok_or_else(|| DbErr::RecordNotFound(format!("Asset {} not found", asset_id)))?;
+        .ok_or_else(|| DbErr::RecordNotFound(format!("Asset {asset_id} not found")))?;
 
     let mut active_model: assets::ActiveModel = existing.into();
 

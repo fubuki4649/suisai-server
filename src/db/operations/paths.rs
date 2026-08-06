@@ -3,7 +3,7 @@ use sea_orm::{DatabaseConnection, DbErr, EntityTrait, QuerySelect};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-/// Gets a collection's path, relative to $STORAGE_ROOT
+/// Gets a collection's path, relative to `$STORAGE_ROOT`
 ///
 /// # Arguments
 /// * `db` - Database connection
@@ -33,7 +33,7 @@ pub async fn get_collection_path(db: &DatabaseConnection, collection_id: String)
             .into_tuple()
             .one(db)
             .await?
-            .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {} not found", cid)))?;
+            .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {cid} not found")))?;
 
         segments.push(label);
         current_id = parent_id;
@@ -49,7 +49,7 @@ pub async fn get_collection_path(db: &DatabaseConnection, collection_id: String)
 }
 
 
-/// Gets an asset's path, relative to $STORAGE_ROOT
+/// Gets an asset's path, relative to `$STORAGE_ROOT`
 ///
 /// # Arguments
 /// * `db` - Database connection
@@ -67,7 +67,7 @@ pub async fn get_asset_path(db: &DatabaseConnection, asset_id: String) -> Result
         .into_tuple()
         .one(db)
         .await?
-        .ok_or_else(|| DbErr::RecordNotFound(format!("Asset {} not found", asset_id)))?;
+        .ok_or_else(|| DbErr::RecordNotFound(format!("Asset {asset_id} not found")))?;
 
     // Build the path
     let mut path = match parent_id {
