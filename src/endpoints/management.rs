@@ -1,170 +1,165 @@
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::Json;
+use serde_json::Value;
+use std::path::Path;
+
 use crate::_utils::json_map::JsonMap;
-use crate::db::operations::album::{get_album, get_album_by_photo};
-use crate::db::operations::join_album_album::{add_album_to_album, remove_album_from_album};
-use crate::db::operations::join_album_photo::{add_photo_to_album, remove_photo_from_album};
-use crate::db::operations::paths::get_album_path;
-use crate::db::operations::photo::get_photo;
-use crate::fs_operations::collection::Collection;
-use crate::fs_operations::asset::Asset;
-use crate::{msg, unwrap_ret, DB_POOL};
-use diesel::result::Error;
-use rocket::http::Status;
-use rocket::post;
-use rocket::serde::json::{Json, Value};
-use std::path::{Path, PathBuf};
+use crate::db::operations::asset::{get_assets, update_asset};
+use crate::db::operations::collection::{get_collections, update_collection};
+use crate::db::operations::paths::{get_asset_path, get_collection_path};
+use crate::fs_operations::asset::Asset as FsAsset;
+use crate::fs_operations::collection::Collection as FsCollection;
+use crate::models::asset::UpdateAsset;
+use crate::models::collection::UpdateCollection;
+use crate::{msg, state::AppState};
 
-/// Removes photos from all albums they are currently assigned to
+type Response = Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)>;
+
+/// Removes assets from their current collection and moves them to the unfiled directory
 ///
-/// # Endpoint
-/// `POST /management/photo/unfile`
+/// # Route
+/// `POST /management/asset/unfile`
 ///
 /// # Request Body
 /// JSON object with:
-/// - `photo_ids`: Array of photo IDs to remove from all albums
+/// - `assetIds`: array of asset UUID strings to unfile
 ///
 /// # Returns
-/// - `200 OK`: Photos were successfully removed from all albums
-/// - `400 Bad Request`: Missing or invalid album_ids or photo_ids in request body
-/// - `500 Internal Server Error`: Full or partial error occurred. Query may not be fully executed
-#[post("/management/photo/unfile", format = "json", data = "<input>")]
-pub fn unfile_photo(input: Json<Value>) -> (Status, Json<Value>) {
-    let photo_ids = unwrap_ret!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
-    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
+/// - `200 OK`: Assets successfully moved to unfiled
+/// - `400 Bad Request`: Missing or invalid `assetIds`
+/// - `500 Internal Server Error`: Database or filesystem error
+pub async fn unfile_asset(State(state): State<AppState>, input: Json<Value>) -> Response {
+    let asset_ids = input.get_value::<Vec<String>>("asset_ids")
+        .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
-    let photos = unwrap_ret!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
-    for photo in photos {
-        // Get path to parent album
-        let parent_album = get_album_by_photo(&mut conn, photo.id);
-        let album_path = match parent_album {
-            Ok(album) => unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError),
-            Err(Error::NotFound) => PathBuf::from("/unfiled"),
-            Err(err) => {
-                return (Status::InternalServerError, msg!("Failed to query album path: {:#?}", err));
-            }
-        };
+    let assets = get_assets(&state.db, &asset_ids).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-        // Move photo and associated files
-        unwrap_ret!(Asset::new_without_thumb(&album_path.join(photo.file_name)).move_to(Path::new("/unfiled")), Status::InternalServerError);
-        // Move photo and associated files
-        unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
+    for asset in assets {
+        let current_path = get_asset_path(&state.db, asset.id.clone()).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+
+        FsAsset::new_without_thumb(&current_path).move_to(Path::new("unfiled"))
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+
+        update_asset(&state.db, asset.id, UpdateAsset { parent_id: Some(None), ..Default::default() }).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
     }
 
-    (Status::Ok, msg!("Success"))
+    Ok((StatusCode::OK, msg!("Success")))
 }
 
-/// Moves photos from their current album(s) to a different album
+/// Moves assets from their current collection to a different one
 ///
-/// # Endpoint
-/// `POST /management/photo/reassign`
+/// # Route
+/// `POST /management/asset/reassign`
 ///
 /// # Request Body
 /// JSON object with:
-/// - `album_id`: The ID of the destination album (i32) 
-/// - `photo_ids`: Array of photo IDs to move to the new album (Vec<i64>)
+/// - `collectionId`: UUID of the destination collection
+/// - `assetIds`: array of asset UUID strings to move
 ///
 /// # Returns
-/// - `200 OK`: Photos were successfully moved to the new album
-/// - `400 Bad Request`: Missing or invalid album_id or photo_ids in request body
-/// - `500 Internal Server Error`: Full or partial error occurred. Query may not be fully executed
-#[post("/management/photo/reassign", format = "json", data = "<input>")]
-pub fn reassign_photo(input: Json<Value>) -> (Status, Json<Value>) {
-    let album_id = unwrap_ret!(input.get_value::<i32>("album_id"), Status::BadRequest);
-    let photo_ids = unwrap_ret!(input.get_value::<Vec<i64>>("photo_ids"), Status::BadRequest);
+/// - `200 OK`: Assets successfully moved to the new collection
+/// - `400 Bad Request`: Missing or invalid `collectionId` or `assetIds`
+/// - `500 Internal Server Error`: Database or filesystem error
+pub async fn reassign_asset(State(state): State<AppState>, input: Json<Value>) -> Response {
+    let collection_id = input.get_value::<String>("collection_id")
+        .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
+    let asset_ids = input.get_value::<Vec<String>>("asset_ids")
+        .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
-    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
+    let dest_path = get_collection_path(&state.db, collection_id.clone()).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-    let photos = unwrap_ret!(get_photo(&mut conn, &photo_ids), Status::InternalServerError);
-    for photo in photos {
-        // Get path to parent album
-        let parent_album = get_album_by_photo(&mut conn, photo.id);
-        let album_path = match parent_album {
-            Ok(album) => unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError),
-            Err(Error::NotFound) => PathBuf::from("/unfiled"),
-            Err(err) => {
-                return (Status::InternalServerError, msg!("Failed to query album path: {:#?}", err));
-            }
-        };
+    let assets = get_assets(&state.db, &asset_ids).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-        // Move photo and associated files
-        let dest_path = unwrap_ret!(get_album_path(&mut conn, album_id), Status::InternalServerError);
-        unwrap_ret!(Asset::new_without_thumb(&album_path.join(photo.file_name)).move_to(&dest_path), Status::InternalServerError);
+    for asset in assets {
+        let current_path = get_asset_path(&state.db, asset.id.clone()).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-        // Delete existing photo-album associations
-        unwrap_ret!(remove_photo_from_album(&mut conn, &[photo.id]), Status::InternalServerError);
+        FsAsset::new_without_thumb(&current_path).move_to(&dest_path)
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-        // Create a new photo-album association
-        unwrap_ret!(add_photo_to_album(&mut conn, album_id, &[photo.id]), Status::InternalServerError);
+        update_asset(&state.db, asset.id, UpdateAsset { parent_id: Some(Some(collection_id.clone())), ..Default::default() }).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
     }
-    
-    (Status::Ok, msg!("Success"))
+
+    Ok((StatusCode::OK, msg!("Success")))
 }
 
-
-/// Remove an album from another (parent) album (turns album into a root album)
+/// Removes collections from their parent and moves them to the root level
 ///
-/// # Endpoint
-/// `POST /management/album/<id>/unfile`
+/// # Route
+/// `POST /management/collection/unfile`
 ///
 /// # Request Body
 /// JSON object with:
-/// - `album_ids`: Array of photo IDs to remove from all albums
+/// - `collectionIds`: array of collection UUID strings to unfile
 ///
 /// # Returns
-/// - `200 OK`: Album successfully removed from parent (move to root)
-/// - `400 Bad Request`: Missing or invalid album_ids or photo_ids in request body
-/// - `500 Internal Server Error`: Database or other server error occurred
-#[post("/management/album/unfile", format = "json", data = "<input>")]
-pub fn unfile_album(input: Json<Value>) -> (Status, Json<Value>) {
-    let album_ids = unwrap_ret!(input.get_value::<Vec<i32>>("album_ids"), Status::BadRequest);
-    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
+/// - `200 OK`: Collections successfully moved to root
+/// - `400 Bad Request`: Missing or invalid `collectionIds`
+/// - `500 Internal Server Error`: Database or filesystem error
+pub async fn unfile_collection(State(state): State<AppState>, input: Json<Value>) -> Response {
+    let collection_ids = input.get_value::<Vec<String>>("collection_ids")
+        .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
-    let albums = unwrap_ret!(get_album(&mut conn, &album_ids), Status::InternalServerError);
-    for album in albums {
-        // Move album to root
-        let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
-        unwrap_ret!(Collection::new(&album_path).move_to(&Path::new("/").join(album.album_name)), Status::InternalServerError);
+    let collections = get_collections(&state.db, &collection_ids).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-        // Reflect change in DB
-        unwrap_ret!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);
+    for collection in collections {
+        let current_path = get_collection_path(&state.db, collection.id.clone()).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+
+        FsCollection::new(&current_path).move_to(Path::new(&collection.label))
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+
+        update_collection(&state.db, collection.id, UpdateCollection { parent_id: Some(None), ..Default::default() }).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
     }
 
-    (Status::Ok, msg!("Success"))
+    Ok((StatusCode::OK, msg!("Success")))
 }
 
-/// Moves albums from their current parent album(s) to a different one
+/// Moves collections from their current parent to a different one
 ///
-/// # Endpoint
-/// `POST /management/album/reassign`
+/// # Route
+/// `POST /management/collection/reassign`
 ///
 /// # Request Body
 /// JSON object with:
-/// - `parent_id`: The ID of the destination album (i32)
-/// - `album_ids`: Array of photo IDs to move to the new album (Vec<i64>)
+/// - `parentId`: UUID of the destination parent collection
+/// - `collectionIds`: array of collection UUID strings to move
 ///
 /// # Returns
-/// - `200 OK`: Photos were successfully moved to the new album
-/// - `400 Bad Request`: Missing or invalid album_id or photo_ids in request body
-/// - `500 Internal Server Error`: Database error or other server error occurred
-#[post("/management/album/reassign", format = "json", data = "<input>")]
-pub fn reassign_album(input: Json<Value>) -> (Status, Json<Value>) {
-    let parent_id = unwrap_ret!(input.get_value::<i32>("parent_id"), Status::BadRequest);
-    let album_ids = unwrap_ret!(input.get_value::<Vec<i32>>("album_ids"), Status::BadRequest);
+/// - `200 OK`: Collections successfully moved to the new parent
+/// - `400 Bad Request`: Missing or invalid `parentId` or `collectionIds`
+/// - `500 Internal Server Error`: Database or filesystem error
+pub async fn reassign_collection(State(state): State<AppState>, input: Json<Value>) -> Response {
+    let parent_id = input.get_value::<String>("parent_id")
+        .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
+    let collection_ids = input.get_value::<Vec<String>>("collection_ids")
+        .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
-    let mut conn = unwrap_ret!(DB_POOL.get(), Status::InternalServerError);
+    let dest_path = get_collection_path(&state.db, parent_id.clone()).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-    let albums = unwrap_ret!(get_album(&mut conn, &album_ids), Status::InternalServerError);
-    let dest = unwrap_ret!(get_album_path(&mut conn, parent_id), Status::InternalServerError);
-    for album in albums {
-        // Move album to new parent
-        let album_path = unwrap_ret!(get_album_path(&mut conn, album.id), Status::InternalServerError);
-        let dest_path = dest.join(album.album_name);
-        unwrap_ret!(Collection::new(&album_path).move_to(&dest_path), Status::InternalServerError);
+    let collections = get_collections(&state.db, &collection_ids).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-        // Reflect changes in DB
-        unwrap_ret!(remove_album_from_album(&mut conn, &[album.id]), Status::InternalServerError);
-        unwrap_ret!(add_album_to_album(&mut conn, parent_id, &[album.id]), Status::InternalServerError);
+    for collection in collections {
+        let current_path = get_collection_path(&state.db, collection.id.clone()).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+
+        FsCollection::new(&current_path).move_to(&dest_path.join(&collection.label))
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+
+        update_collection(&state.db, collection.id, UpdateCollection { parent_id: Some(Some(parent_id.clone())), ..Default::default() }).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
     }
 
-    (Status::Ok, msg!("Success"))
+    Ok((StatusCode::OK, msg!("Success")))
 }
-

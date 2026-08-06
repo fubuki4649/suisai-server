@@ -3,7 +3,6 @@ use crate::ingest::helpers::extract_thumbnail::extract_thumbnail_full;
 use crate::ingest::helpers::search_path::search_path_for_assets;
 use crate::ingest::traits::SuisaiAsset;
 use chrono::Datelike;
-use rocket::serde::json::serde_json;
 use sea_orm::DatabaseConnection;
 use std::env;
 use std::fs::{copy, create_dir_all, rename};

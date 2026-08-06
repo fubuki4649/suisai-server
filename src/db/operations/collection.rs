@@ -73,6 +73,24 @@ pub async fn update_collection(db: &DatabaseConnection, collection_id: String, u
     Ok(updated.into())
 }
 
+/// Gets collections by their IDs
+///
+/// # Arguments
+/// * `db` - Database connection
+/// * `collection_ids` - Slice of collection UUIDs to retrieve
+///
+/// # Returns
+/// Vector of collections matching the provided IDs, or an error
+pub async fn get_collections(db: &DatabaseConnection, collection_ids: &[String]) -> Result<Vec<Collection>, DbErr> {
+    if collection_ids.is_empty() { return Ok(vec![]); }
+
+    collections::Entity::find()
+        .filter(collections::Column::Id.is_in(collection_ids.to_vec()))
+        .into_partial_model::<Collection>()
+        .all(db)
+        .await
+}
+
 /// Gets collections by parent ID, or root-level collections if `parent_id` is `None`
 ///
 /// # Arguments

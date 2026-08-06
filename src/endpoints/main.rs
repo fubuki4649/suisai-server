@@ -1,5 +1,6 @@
-use crate::endpoints::assets::{del_asset, get_assets_handler};
+use crate::endpoints::assets::{del_asset, get_assets};
 use crate::endpoints::collection::{assets_in_collection, del_collection, get_collection_flat, get_collection_tree, new_collection_handler, rename_collection, unfiled_assets};
+use crate::endpoints::management::{reassign_asset, reassign_collection, unfile_asset, unfile_collection};
 use crate::endpoints::meow::health_check;
 use crate::endpoints::thumbnail::get_thumbnail;
 use crate::preflight::check_directories;
@@ -23,7 +24,7 @@ pub async fn start_webserver(state: AppState) {
     let app = Router::new()
         .route("/meow", get(health_check))
         .route("/thumbnail/{hash}", get(get_thumbnail))
-        .route("/asset/get", axum::routing::post(get_assets_handler))
+        .route("/asset/get", axum::routing::post(get_assets))
         .route("/asset/delete", axum::routing::delete(del_asset))
         .route("/collection/tree", get(get_collection_tree))
         .route("/collection/flat", get(get_collection_flat))
@@ -32,6 +33,10 @@ pub async fn start_webserver(state: AppState) {
         .route("/collection/:id/rename", axum::routing::patch(rename_collection))
         .route("/collection/:id/delete", axum::routing::delete(del_collection))
         .route("/collection/:id/assets", get(assets_in_collection))
+        .route("/management/asset/unfile", axum::routing::post(unfile_asset))
+        .route("/management/asset/reassign", axum::routing::post(reassign_asset))
+        .route("/management/collection/unfile", axum::routing::post(unfile_collection))
+        .route("/management/collection/reassign", axum::routing::post(reassign_collection))
         .layer(CorsLayer::permissive())
         .with_state(state);
 

@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::path::Path;
 
 use crate::_utils::json_map::JsonMap;
-use crate::db::operations::asset::{delete_asset, get_assets};
+use crate::db::operations::asset::{delete_asset, get_assets as db_get_assets};
 use crate::db::operations::paths::get_collection_path;
 use crate::fs_operations::asset::Asset as FsAsset;
 use crate::models::asset::Asset;
@@ -68,11 +68,11 @@ pub async fn del_asset(State(state): State<AppState>, input: Json<Value>) -> Res
 /// - `200 OK` with a JSON array of matching `Asset` objects (skips IDs that don't exist)
 /// - `400 Bad Request` if `assetIds` is missing or malformed
 /// - `500 Internal Server Error` if the query fails
-pub async fn get_assets_handler(State(state): State<AppState>, input: Json<Value>) -> Result<Json<Vec<Asset>>, (StatusCode, Json<Value>)> {
+pub async fn get_assets(State(state): State<AppState>, input: Json<Value>) -> Result<Json<Vec<Asset>>, (StatusCode, Json<Value>)> {
     let asset_ids = input.get_value::<Vec<String>>("asset_ids")
         .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
-    get_assets(&state.db, &asset_ids).await
+    db_get_assets(&state.db, &asset_ids).await
         .map(Json)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))
 }
