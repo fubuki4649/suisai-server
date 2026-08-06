@@ -27,7 +27,7 @@ impl Collection {
     /// Ok if the collection was successfully created at `$STORAGE_ROOT/collection_name`
     pub fn create(collection_name: &str) -> Result<(), Error> {
         let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
-        fs::create_dir(storage_root.join(collection_name))?;
+        fs::create_dir_all(storage_root.join(collection_name))?;
         Ok(())
     }
 
@@ -55,6 +55,7 @@ impl Collection {
         }
 
         // Delete the now-empty collection directory
+        // Intentionally delete the directory, even if it's not empty, so any caches, .DS_Store, etc. are removed
         fs::remove_dir_all(full_collection_path)?;
 
         Ok(())

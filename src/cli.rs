@@ -23,7 +23,7 @@ enum Commands {
         source: String,
         #[arg(long, help = "Run ingestion in dry mode (no actual changes to DB or filesystem)")]
         dry: bool,
-        #[arg(long, help = "Move instead of move files to their new destination (default behavior is copy)")]
+        #[arg(long, help = "Move instead of copy files to their new destination (default behavior is copy)")]
         no_preserve: bool,
     }
 }

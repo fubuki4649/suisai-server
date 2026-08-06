@@ -2,7 +2,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::Value;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::_utils::json_map::JsonMap;
 use crate::db::operations::asset::{delete_asset, get_assets as db_get_assets};
@@ -38,11 +38,13 @@ pub async fn del_asset(State(state): State<AppState>, input: Json<Value>) -> Res
 
     // Delete each asset and its associated files from disk
     for asset in deleted {
+
         // Get the full path to the asset, so we can delete it from the disk
+        // We can't use the DB operation anymore because it's already removed from the database at this point
         let mut asset_path = match asset.parent_id {
             Some(parent_id) => get_collection_path(&state.db, parent_id).await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?,
-            None => std::path::PathBuf::new(),
+            None => PathBuf::from("/unfiled"),
         };
         asset_path.push(&asset.file_name);
 

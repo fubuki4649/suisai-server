@@ -3,7 +3,6 @@ use crate::endpoints::collection::{assets_in_collection, del_collection, get_col
 use crate::endpoints::management::{reassign_asset, reassign_collection, unfile_asset, unfile_collection};
 use crate::endpoints::meow::health_check;
 use crate::endpoints::thumbnail::get_thumbnail;
-use crate::preflight::check_directories;
 use crate::state::AppState;
 use axum::{routing::get, Router};
 use tower_http::cors::CorsLayer;
@@ -17,9 +16,7 @@ use tower_http::cors::CorsLayer;
 /// # Arguments
 /// * `state` - The application state instance containing `SeaORM` database connection
 pub async fn start_webserver(state: AppState) {
-    // Run preflight checks (directory validation & setup)
-    check_directories().unwrap();
-
+    
     // Build the Axum router and attach routes & shared AppState
     let app = Router::new()
         .route("/meow", get(health_check))

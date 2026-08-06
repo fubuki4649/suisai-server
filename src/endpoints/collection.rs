@@ -101,7 +101,9 @@ pub async fn get_collection_flat(State(state): State<AppState>) -> Result<Json<V
 pub async fn new_collection_handler(State(state): State<AppState>, input: Json<Value>) -> Response {
     let label = input.get_value::<String>("label")
         .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
-    let parent_id = input.get_value::<Option<String>>("parent_id").unwrap_or(None);
+
+    let parent_id = input.get_value::<Option<String>>("parent_id")
+        .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
     // Resolve the parent path so we know where to create the directory
     let parent_path = match &parent_id {
@@ -147,7 +149,7 @@ pub async fn rename_collection(Path(id): Path<String>, State(state): State<AppSt
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
     let new_path = old_path.parent()
-        .ok_or_else(|| (StatusCode::INTERNAL_SERVER_ERROR, msg!("Cannot rename the root directory itself!")))?
+        .ok_or_else(|| (StatusCode::INTERNAL_SERVER_ERROR, msg!("Failed to resolve the parent dir of the collection!")))?
         .join(&label);
 
     // Move the directory on disk

@@ -72,7 +72,7 @@ pub async fn get_asset_path(db: &DatabaseConnection, asset_id: String) -> Result
     // Build the path
     let mut path = match parent_id {
         Some(collection_id) => get_collection_path(db, collection_id).await?,
-        None => PathBuf::new(),
+        None => PathBuf::from("unfiled"),
     };
 
     path.push(file_name);

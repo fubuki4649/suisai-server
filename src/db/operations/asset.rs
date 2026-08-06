@@ -114,11 +114,11 @@ pub async fn update_asset(db: &DatabaseConnection, asset_id: String, update: Upd
 ///
 /// # Arguments
 /// * `db` - Database connection
-/// * `incoming_hash` - UUID of the asset
+/// * `incoming_hash` - The `xxh3_128` content hash to look up
 ///
 /// # Returns
 /// `Ok(None)` if `incoming_hash` doesn't already exist; `Ok(Some(asset))` with the matching asset
-/// if `incoming_hash` exits; `Err(DbErr)` otherwise
+/// if `incoming_hash` exists; `Err(DbErr)` otherwise
 pub async fn check_hash(db: &DatabaseConnection, incoming_hash: &str) -> Result<Option<Asset>, DbErr> {
     let hash: Option<Asset> = assets::Entity::find()
         .filter(assets::Column::Hash.eq(incoming_hash))

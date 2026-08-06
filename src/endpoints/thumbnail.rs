@@ -3,6 +3,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::Value;
+use std::path::PathBuf;
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 
@@ -32,9 +33,14 @@ pub async fn get_thumbnail(Path(hash): Path<String>, State(state): State<AppStat
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?
         .ok_or_else(|| (StatusCode::NOT_FOUND, msg!("No photo with hash {} found", hash)))?;
 
-    // Extract integrated thumbnail_path from asset struct
-    let thumb_path = asset.thumbnail_path
+    // Extract thumbnail path and resolve it against $THUMBNAIL_ROOT
+    let relative_thumb = asset.thumbnail_path
         .ok_or_else(|| (StatusCode::NOT_FOUND, msg!("No thumbnail generated for asset with hash {}", hash)))?;
+
+    let thumbnail_root = std::env::var("THUMBNAIL_ROOT")
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, msg!("$THUMBNAIL_ROOT is not set")))?;
+
+    let thumb_path = PathBuf::from(thumbnail_root).join(relative_thumb);
 
     // Serve the thumbnail file
     Ok(ServeFile::new(thumb_path).oneshot(req).await
