@@ -91,23 +91,6 @@ pub async fn get_collections(db: &DatabaseConnection, collection_ids: &[String])
         .await
 }
 
-/// Gets collections by parent ID, or root-level collections if `parent_id` is `None`
-///
-/// # Arguments
-/// * `db` - Database connection
-/// * `parent_id` - UUID of the parent collection, or `None` to get root-level collections
-///
-/// # Returns
-/// A list of matching collections, or an error
-pub async fn get_collections_by_parent(db: &DatabaseConnection, parent_id: Option<String>) -> Result<Vec<Collection>, DbErr> {
-    let query = collections::Entity::find();
-    let query = match parent_id {
-        Some(id) => query.filter(collections::Column::ParentId.eq(id)),
-        None => query.filter(collections::Column::ParentId.is_null()),
-    };
-    query.into_partial_model::<Collection>().all(db).await
-}
-
 /// Gets all collections in a flat list
 ///
 /// # Arguments

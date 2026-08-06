@@ -1,7 +1,7 @@
 use crate::db::entities::assets;
 use crate::models::asset::{Asset, NewAsset, UpdateAsset};
 use crate::patch_fields;
-use sea_orm::{entity::*, DatabaseConnection, DbErr, QueryFilter, QuerySelect, Set};
+use sea_orm::{entity::*, DatabaseConnection, DbErr, QueryFilter, Set};
 
 /// Creates a new asset in the database
 ///
