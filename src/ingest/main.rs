@@ -36,7 +36,7 @@ pub async fn ingest(db: &DatabaseConnection, path: String, dry: bool, no_preserv
         // Skip if this image is already in the database
         let hash = path.get_hash();
 
-        match check_hash(&db, &hash).await {
+        match check_hash(db, &hash).await {
             Ok(Some(_)) => {
                 println!("Hash {hash} already exists in database, skipping");
                 continue;
@@ -88,7 +88,7 @@ pub async fn ingest(db: &DatabaseConnection, path: String, dry: bool, no_preserv
         println!("{}", serde_json::to_string_pretty(&asset).unwrap());
 
         println!("Adding {} to database", asset.file_name);
-        let new_asset_id = match new_asset(&db, asset).await {
+        let new_asset_id = match new_asset(db, asset).await {
             Err(e) => {
                 println!("Error: {e}");
                 return;

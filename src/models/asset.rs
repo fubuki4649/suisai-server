@@ -56,7 +56,7 @@ impl From<assets::Model> for Asset {
             hash: model.hash,
             file_name: model.file_name,
             size_on_disk: model.size_on_disk,
-            photo_date: model.photo_date.into(),
+            photo_date: model.photo_date,
             photo_timezone: model.photo_timezone,
             resolution_width: model.resolution_width,
             resolution_height: model.resolution_height,

@@ -21,7 +21,7 @@ pub async fn new_asset(db: &DatabaseConnection, asset: NewAsset) -> Result<Strin
         hash: Set(asset.hash),
         file_name: Set(asset.file_name),
         size_on_disk: Set(asset.size_on_disk),
-        photo_date: Set(asset.photo_date.into()),
+        photo_date: Set(asset.photo_date),
         photo_timezone: Set(asset.photo_timezone),
         resolution_width: Set(asset.resolution_width),
         resolution_height: Set(asset.resolution_height),

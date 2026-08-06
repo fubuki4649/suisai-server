@@ -2,7 +2,6 @@ use crate::endpoints::main::start_webserver;
 use crate::ingest::main::ingest;
 use crate::state::AppState;
 use clap::{Parser, Subcommand};
-use tokio;
 
 #[derive(Parser)]
 #[command(name = "suisai", version = "1.0", about = "Backend server for suisai")]
