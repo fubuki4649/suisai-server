@@ -1,5 +1,6 @@
 use crate::endpoints::main::start_webserver;
 use crate::ingest::main::ingest;
+use crate::preflight::check_cli_deps;
 use crate::state::AppState;
 use clap::{Parser, Subcommand};
 
@@ -40,6 +41,9 @@ pub async fn run_cli(state: AppState) {
             // Await the endpoints to keep the process alive
             let _ = web_handle.await;
         }
-        Commands::Ingest { source, dry, no_preserve } => ingest(&state.db, source, dry, no_preserve).await,
+        Commands::Ingest { source, dry, no_preserve } => {
+            check_cli_deps().unwrap();
+            ingest(&state.db, source, dry, no_preserve).await;
+        }
     }
 }
