@@ -1,5 +1,5 @@
 use crate::db::entities::assets;
-use crate::models::asset::{Asset, NewAsset, UpdateAsset};
+use crate::models::asset::{Asset, NewDbAsset, UpdateAsset};
 use crate::patch_fields;
 use sea_orm::{entity::{EntityTrait, ActiveModelTrait, ColumnTrait}, DatabaseConnection, DbErr, QueryFilter, Set};
 
@@ -11,7 +11,7 @@ use sea_orm::{entity::{EntityTrait, ActiveModelTrait, ColumnTrait}, DatabaseConn
 ///
 /// # Returns
 /// The UUID of the newly created asset, or an error
-pub async fn new_asset(db: &DatabaseConnection, asset: NewAsset) -> Result<String, DbErr> {
+pub async fn new_asset(db: &DatabaseConnection, asset: NewDbAsset) -> Result<String, DbErr> {
     let id = uuid::Uuid::now_v7().to_string();
 
     let active_model = assets::ActiveModel {

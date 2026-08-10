@@ -72,7 +72,7 @@ impl From<assets::Model> for Asset {
     }
 }
 
-/// A variant of `Asset` without an `id` field, used for creating new asset instances.
+/// A variant of `Asset` without an `id` field, used for DB operations (creating new entries).
 ///
 /// IDs are auto-generated as `UUIDv7` on insert.
 ///
@@ -95,7 +95,7 @@ impl From<assets::Model> for Asset {
 /// - `shutter_speed` (`String`): Exposure time as a string (e.g. "1/250")
 /// - `aperture` (`f32`): F-stop value used
 #[derive(Debug, Serialize)]
-pub struct NewAsset {
+pub struct NewDbAsset {
     pub parent_id: Option<String>,
     pub thumbnail_path: Option<String>,
     pub hash: String,

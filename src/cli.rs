@@ -21,8 +21,6 @@ enum Commands {
     Ingest {
         #[arg(help = "Path to a directory containing camera raws")]
         source: String,
-        #[arg(long, help = "Run ingestion in dry mode (no actual changes to DB or filesystem)")]
-        dry: bool,
         #[arg(long, help = "Move instead of copy files to their new destination (default behavior is copy)")]
         no_preserve: bool,
     }
@@ -41,9 +39,9 @@ pub async fn run_cli(state: AppState) {
             // Await the endpoints to keep the process alive
             let _ = web_handle.await;
         }
-        Commands::Ingest { source, dry, no_preserve } => {
+        Commands::Ingest { source, no_preserve } => {
             check_cli_deps().unwrap();
-            ingest(&state.db, source, dry, no_preserve).await;
+            ingest(&state.db, source, no_preserve).await;
         }
     }
 }

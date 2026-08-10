@@ -1,123 +1,120 @@
 use crate::db::operations::asset::{check_hash, new_asset};
 use crate::ingest::helpers::extract_thumbnail::extract_thumbnail_full;
+use crate::ingest::helpers::hash_and_transfer::hash_and_transfer;
 use crate::ingest::helpers::search_path::search_path_for_assets;
 use crate::ingest::traits::SuisaiAsset;
 use chrono::Datelike;
 use sea_orm::DatabaseConnection;
 use std::env;
-use std::path::{Path, PathBuf};
-
+use std::num::NonZero;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::fs::{create_dir_all, remove_file};
+use tokio::sync::Mutex;
+use tokio::task::JoinSet;
 
 /// Ingests photos from a directory as a suisai asset, including database storage and thumbnail generation
-pub async fn ingest(db: &DatabaseConnection, path: String, dry: bool, no_preserve: bool) {
-    println!("Ingesting files from: {path}");
-    if dry {
-        println!("Running in dry mode");
-    }
+pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
 
-    // Get a list of images from the source directory
-    let paths = search_path_for_assets(Path::new(&path));
-
-    // In dry run mode, just print what would happen without making changes
-    if dry {
-        for path in paths {
-            println!("{}", serde_json::to_string_pretty(&path.to_db_entry()).unwrap());
-        }
-        return;
-    }
-
-    // Initialize storage paths
+    // Set up destination directories
     let storage_root = PathBuf::from(env::var("STORAGE_ROOT").unwrap());
     let thumbnail_root = PathBuf::from(env::var("THUMBNAIL_ROOT").unwrap());
+    let dest_dir = storage_root.join("unfiled");
+    create_dir_all(&dest_dir).await.unwrap_or_else(|_| panic!("Failed to create directory {}", dest_dir.display()));
 
-    // Iterate over all found paths
-    for path in paths {
-        // Skip if this image is already in the database
-        let hash = {
-            let path = path.clone();
-            tokio::task::spawn_blocking(move || path.get_hash()).await.unwrap()
-        };
+    // Set up send/receive channels for multithreading
+    let (tx, rx) = tokio::sync::mpsc::channel::<PathBuf>(100);
+    let shared_rx = Arc::new(Mutex::new(rx));
 
-        match check_hash(db, &hash).await {
-            Ok(Some(_)) => {
-                println!("Hash {hash} already exists in database, skipping");
-                continue;
-            },
-            Ok(None) => (),
-            Err(e) => panic!("Database Error: {e}"),
-        }
+    // Launch producer to probe for files to ingest
+    tokio::task::spawn_blocking(move || {
+        println!("Ingesting files from: {path}");
+        search_path_for_assets(&PathBuf::from(path), &tx).unwrap_or_else(|err| {
+            eprintln!("Error searching for assets: {}", err);
+        });
+        drop(tx);
+    });
 
-        // Prepare destination directory (`$STORAGE_ROOT/unfiled`), creating it if necessary
-        let dest_directory = storage_root.join("unfiled");
-        tokio::fs::create_dir_all(&dest_directory).await
-            .unwrap_or_else(|_| panic!("Failed to create directory {}", dest_directory.display()));
+    let available_threads = std::thread::available_parallelism().unwrap_or(NonZero::new(8).unwrap()).get();
+    let mut workers = JoinSet::new();
 
-        // Copy or move the image file to the storage location
-        let filename = path.file_name().unwrap_or_default().to_string_lossy();
-        let new_path = dest_directory.join(filename.to_string());
-        if no_preserve {
-            // Move if the `--no-preserve` flag is set
-            match tokio::fs::rename(&path, &new_path).await {
-                Err(e) => {
-                    println!("Error moving {} to {}: {}", filename, dest_directory.display(), e);
-                    continue
-                },
-                Ok(_) => println!("Moved {} to {}", filename, dest_directory.display())
-            }
-        } else {
-            // Copy, otherwise
-            match tokio::fs::copy(&path, &new_path).await {
-                Err(e) => {
-                    println!("Error copying {} to {}: {}", filename, dest_directory.display(), e);
-                    continue
-                },
-                Ok(bytes) => println!("Copied {} to {} ({} bytes)", filename, dest_directory.display(), bytes)
-            }
-        }
+    // Launch workers equal to the number of threads to ingest in parallel
+    for _ in 0..available_threads {
+        let rx = shared_rx.clone();
+        let db = db.clone();
+        let dest_dir = dest_dir.clone();
+        let thumbnail_root = thumbnail_root.clone();
 
-        // Generate and store a JPEG thumbnail at `$THUMBNAIL_ROOT/yyyymm/FILENAME.jpeg`
-        // Metadata extraction (exiftool) and thumbnail generation (dcraw/cjpeg) are blocking
-        // subprocess calls — run them off the async executor.
-        let new_path_clone = new_path.clone();
-        let thumbnail_root_clone = thumbnail_root.clone();
-        let thumbnail_path = tokio::task::spawn_blocking(move || {
-            let date = new_path_clone.get_photo_date();
-            let thumbnail_subdir = format!("{}{:02}", date.year(), date.month());
-            let thumbnail_dir = thumbnail_root_clone.join(&thumbnail_subdir);
-            let thumbnail_filename = format!("{}.jpeg", new_path_clone.file_stem().unwrap().to_string_lossy());
-            let thumbnail_dir_str = thumbnail_dir.to_string_lossy().to_string();
+        workers.spawn(async move {
+            loop {
+                let path = {
+                    let mut guard = rx.lock().await;
+                    guard.recv().await
+                };
 
-            match extract_thumbnail_full(new_path_clone.to_str().unwrap(), &thumbnail_dir_str, &thumbnail_filename) {
-                Ok(()) => {
-                    // Store as relative path: `yyyymm/FILENAME.jpeg`
-                    let relative = format!("{thumbnail_subdir}/{thumbnail_filename}");
-                    println!("Thumbnail created at {}", thumbnail_dir.join(&thumbnail_filename).display());
-                    Some(relative)
-                },
-                Err(e) => {
-                    println!("Error creating thumbnail for {}: {e}", new_path_clone.display());
-                    None
+                let Some(path) = path else { break };
+
+                let filename = path.file_name().unwrap_or_default().to_string_lossy();
+                let asset_new_path = dest_dir.join(filename.as_ref());
+
+                // Copy and read the hash in the same pass (we can delete it later if we don't need it)
+                // Much better for ingesting straight from SD cards/slow network sources
+                let (hash, bytes_transferred) = match hash_and_transfer(&path, &asset_new_path, no_preserve).await {
+                    Ok(result) => result,
+                    Err(e) => {
+                        println!("Error transferring {filename}: {e}");
+                        continue;
+                    }
+                };
+
+                println!("{} {filename} to {} ({bytes_transferred} bytes)", if no_preserve { "Moved" } else { "Copied" }, dest_dir.display());
+
+                // Check for duplicate after transfer — if duplicate, discard the transferred file
+                match check_hash(&db, &hash).await {
+                    Err(e) => panic!("Database Error: {e}"),
+                    Ok(Some(_)) => {
+                        println!("Hash {hash} already exists in database, discarding");
+                        if let Err(e) = remove_file(&asset_new_path).await {
+                            println!("Warning: failed to remove duplicate file {}: {e}", asset_new_path.display());
+                        }
+                        continue;
+                    },
+                    Ok(None) => (),
                 }
+
+                // Generate thumbnail and build DB entry
+                let thumbnail_root = thumbnail_root.clone();
+                let new_db_asset = tokio::task::spawn_blocking(move || {
+                    // Build DB entry
+                    let mut new_db_asset = asset_new_path.to_db_entry();
+
+                    // Generate Thumbnail
+                    let date = asset_new_path.get_photo_date();
+                    let thumbnail_filename = format!("{}.jpeg", asset_new_path.file_stem().unwrap().to_string_lossy());
+                    let thumbnail_path_rel = PathBuf::from(format!("/{}{:02}", date.year(), date.month())).join(&thumbnail_filename);
+                    let thumbnail_path_abs = thumbnail_root.join(&thumbnail_path_rel);
+
+                    match extract_thumbnail_full(asset_new_path.to_str().unwrap(), thumbnail_path_abs.parent().unwrap().to_string_lossy().as_ref(), &thumbnail_filename) {
+                        Ok(()) => {
+                            println!("Thumbnail created at {}", thumbnail_path_abs.join(&thumbnail_filename).display());
+                            new_db_asset.thumbnail_path = Some(thumbnail_path_rel.to_string_lossy().to_string());
+                        },
+                        Err(e) => println!("Error creating thumbnail for {}: {e}", asset_new_path.display()),
+                    };
+
+                    new_db_asset
+                }).await.unwrap();
+
+                // Insert into DB
+                println!("Adding {filename} to database");
+                match new_asset(&db, new_db_asset).await {
+                    Err(e) => println!("Error: {e}"),
+                    Ok(id) => println!("Created asset with database ID {id}")
+                };
             }
-        }).await.unwrap();
-
-        // Build the db entry from metadata (also blocking — exiftool subprocess calls)
-        let new_path_clone = new_path.clone();
-        let mut asset = tokio::task::spawn_blocking(move || new_path_clone.to_db_entry()).await.unwrap();
-        asset.thumbnail_path = thumbnail_path;
-        println!("{}", serde_json::to_string_pretty(&asset).unwrap());
-
-        println!("Adding {} to database", asset.file_name);
-        let new_asset_id = match new_asset(db, asset).await {
-            Err(e) => {
-                println!("Error: {e}");
-                return;
-            },
-            Ok(id) => id
-        };
-
-        println!("Created asset with database ID {new_asset_id}");
+        });
     }
 
+    workers.join_all().await;
     println!("Finished");
 }

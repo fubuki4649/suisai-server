@@ -1,5 +1,5 @@
 use crate::_utils::run_command::ShellReturn;
-use crate::models::asset::NewAsset;
+use crate::models::asset::NewDbAsset;
 use crate::sh;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use std::fs;
@@ -61,7 +61,7 @@ pub trait SuisaiAsset {
     fn get_aperture(&self) -> f32;
 
     /// Returns a `crate::models::asset::NewAsset`.
-    fn to_db_entry(&self) -> NewAsset;
+    fn to_db_entry(&self) -> NewDbAsset;
 }
 
 impl SuisaiAsset for PathBuf {
@@ -216,9 +216,9 @@ impl SuisaiAsset for PathBuf {
         }
     }
 
-    fn to_db_entry(&self) -> NewAsset {
+    fn to_db_entry(&self) -> NewDbAsset {
         let resolution = self.get_resolution();
-        NewAsset {
+        NewDbAsset {
             parent_id: None,
             thumbnail_path: None,
             hash: self.get_hash(),
