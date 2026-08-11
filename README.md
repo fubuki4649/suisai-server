@@ -8,10 +8,6 @@ Backend server for suisai
 
 </div>
 
-## Dependencies
-
-- `dcraw` - for reading raw files (thumbnail generation)
-- `cjpeg` - for encoding to JPEG (thumbnail generation)
 
 ## Setup
 
@@ -23,7 +19,7 @@ cp example.env .env
 
 Ensure `STORAGE_ROOT`, `THUMBNAIL_ROOT`, and `DATABASE_URL` are configured properly.
 
-For SQLite, set `DATABASE_URL` in `.env`:
+This project uses SQLite. Configure it with `DATABASE_URL` in `.env`:
 
 ```env
 DATABASE_URL="sqlite://suisai.db?mode=rwc"

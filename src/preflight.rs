@@ -4,7 +4,7 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-/// Checks and creates required directory structure for the application.
+/// Checks and creates the required directory structures for Suisai.
 ///
 /// Verifies that all directories required by the application exist under `$STORAGE_ROOT`
 /// and `$THUMBNAIL_ROOT`, creating any that are missing. Returns an error if `$STORAGE_ROOT`
@@ -31,33 +31,6 @@ pub fn check_directories() -> Result<(), anyhow::Error> {
         }
     }
 
-    Ok(())
-}
-
-/// Verifies that required external CLI dependencies are installed and available in `$PATH`.
-pub fn check_cli_deps() -> Result<(), anyhow::Error> {
-    let required_tools = ["dcraw", "cjpeg"];
-    let mut missing = Vec::new();
-
-    let path_var = env::var_os("PATH").ok_or_else(|| anyhow::anyhow!("$PATH is not set"))?;
-
-    // Check for missing CLI deps
-    for tool in required_tools {
-        let found = env::split_paths(&path_var).any(|dir| dir.join(tool).is_file());
-        if !found {
-            missing.push(tool);
-        }
-    }
-
-    // Report missing CLI deps if any, and do not continue
-    if !missing.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Missing required external CLI tools: {}. Please install them and ensure they are in your $PATH.",
-            missing.join(", ")
-        ));
-    }
-
-    println!("Found required external CLI tools: {}", required_tools.join(", "));
     Ok(())
 }
 

@@ -1,10 +1,6 @@
-use crate::_utils::run_command::ShellReturn;
-use crate::sh;
-use anyhow::anyhow;
+use anyhow::{anyhow, Result};
 use std::fs::create_dir_all;
 use std::path::Path;
-use std::process::Command;
-
 
 /// Extracts and creates a JPEG thumbnail from a raw image file.
 ///
@@ -23,14 +19,7 @@ use std::process::Command;
 ///
 /// This function will return an error if:
 /// * The output directory cannot be created
-/// * The dcraw command fails to process the raw image
-/// * The cjpeg command fails to create the JPEG
-///
-/// # External Dependencies
-///
-/// Requires the following command line tools to be installed:
-/// * dcraw - For raw image processing
-/// * cjpeg - For JPEG compression
+/// * The thumbnail extraction fails
 ///
 /// # Example
 ///
@@ -41,12 +30,12 @@ use std::process::Command;
 ///     "photo.jpeg"
 /// )?;
 /// ```
-pub fn extract_thumbnail_full(path: &str, output_dir: &str, filename: &str) -> anyhow::Result<()> {
+pub fn extract_thumbnail_full(path: &str, output_dir: &str, filename: &str) -> Result<()> {
     create_dir_all(output_dir).map_err(|e| anyhow!("Failed to create thumbnail directory {output_dir}: {e}"))?;
 
-    let result = sh!("dcraw -c -w -q 3 {} | cjpeg > {}", path, Path::new(output_dir).join(filename).to_str().unwrap());
-    match result.err_code {
-        0 => Ok(()),
-        err_code => Err(anyhow!("Error {}: {}", err_code, result.stderr)),
-    }
+    let output_path = Path::new(output_dir).join(filename);
+    rawlib::extract_thumbnail_to_file(path, &output_path)
+        .map_err(|e| anyhow!("Failed to extract thumbnail from {path}: {e}"))?;
+
+    Ok(())
 }
