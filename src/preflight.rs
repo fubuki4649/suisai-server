@@ -36,7 +36,7 @@ pub fn check_directories() -> Result<(), anyhow::Error> {
 
 /// Verifies that required external CLI dependencies are installed and available in `$PATH`.
 pub fn check_cli_deps() -> Result<(), anyhow::Error> {
-    let required_tools = ["exiftool", "dcraw", "cjpeg"];
+    let required_tools = ["dcraw", "cjpeg"];
     let mut missing = Vec::new();
 
     let path_var = env::var_os("PATH").ok_or_else(|| anyhow::anyhow!("$PATH is not set"))?;

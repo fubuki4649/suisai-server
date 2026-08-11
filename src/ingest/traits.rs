@@ -1,24 +1,12 @@
-use crate::_utils::run_command::ShellReturn;
 use crate::models::asset::NewDbAsset;
-use crate::sh;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use exiftool_rs::{image_info, ImageInfo};
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 use xxhash_rust::xxh3::xxh3_128;
 
 /// A trait providing methods to extract metadata from an image file path
 /// and convert it into a database-compatible format.
-///
-/// This trait is designed to read EXIF metadata from image files using `ExifTool`
-/// and prepare it for insertion into the database. It handles various camera and
-/// lens metadata fields, as well as essential photo attributes like timestamps,
-/// file hash, and image dimensions.
-///
-/// All methods in this trait have a default fallback value if metadata cannot be
-/// read, ensuring database operations won't fail due to missing EXIF data.
-///
-/// The trait is primarily implemented for `PathBuf` to work directly with filesystem paths.
 pub trait SuisaiAsset {
     /// Gets the `xxh3_128` content hash of the asset file
     fn get_hash(&self) -> String;
@@ -27,215 +15,137 @@ pub trait SuisaiAsset {
     fn get_size_on_disk(&self) -> i64;
 
     /// The date/time the photo was taken, in UTC
-    fn get_photo_date(&self) -> DateTime<Utc>;
+    fn get_photo_date(&self, info: &ImageInfo) -> DateTime<Utc>;
 
     /// The timezone where the photo was taken, as a UTC offset. Defaults to JST (UTC+9).
-    fn get_photo_timezone(&self) -> String;
+    fn get_photo_timezone(&self, info: &ImageInfo) -> String;
 
     /// Returns a `Vec<i64>` of length 2 representing the dimensions of the image (width, height)
-    fn get_resolution(&self) -> Vec<i64>;
+    fn get_resolution(&self, info: &ImageInfo) -> Vec<i64>;
 
     /// The MIME type of the image
-    fn get_mime(&self) -> String;
+    fn get_mime(&self, info: &ImageInfo) -> String;
 
     /// The model of the camera used to take the image
-    fn get_camera_model(&self) -> String;
+    fn get_camera_model(&self, info: &ImageInfo) -> String;
 
     /// The model of the lens used to take the image
-    fn get_lens_model(&self) -> String;
+    fn get_lens_model(&self, info: &ImageInfo) -> String;
 
     /// The shutter count of the camera when the image was taken.
-    /// Might not be unique for cameras with electronic shutter.
-    fn get_shutter_count(&self) -> i64;
+    fn get_shutter_count(&self, info: &ImageInfo) -> i64;
 
     /// The focal length used to take the image, in mm
-    fn get_focal_length(&self) -> i16;
+    fn get_focal_length(&self, info: &ImageInfo) -> i16;
 
     /// ISO sensitivity of the camera when the image was taken
-    fn get_iso(&self) -> i64;
+    fn get_iso(&self, info: &ImageInfo) -> i64;
 
-    /// The shutter speed used to take the photo. Usually expressed as a fraction.
-    fn get_shutter_speed(&self) -> String;
+    /// The shutter speed used to take the photo
+    fn get_shutter_speed(&self, info: &ImageInfo) -> String;
 
     /// The aperture setting (f-stop) used to take the photo
-    fn get_aperture(&self) -> f32;
+    fn get_aperture(&self, info: &ImageInfo) -> f32;
 
-    /// Returns a `crate::models::asset::NewAsset`.
+    /// Returns a `crate::models::asset::NewDbAsset`.
     fn to_db_entry(&self) -> NewDbAsset;
 }
 
 impl SuisaiAsset for PathBuf {
     fn get_hash(&self) -> String {
-        let data = fs::read(self).unwrap_or_default();
-        let hash = xxh3_128(&data);
-        format!("{hash:032x}")
+        format!("{:032x}", xxh3_128(&fs::read(self).unwrap_or_default()))
     }
 
     fn get_size_on_disk(&self) -> i64 {
-        let metadata = fs::metadata(self);
-        match metadata {
-            Ok(metadata) => metadata.len().div_ceil(1024) as i64,
-            Err(_) => 0,
-        }
+        fs::metadata(self).map(|m| m.len().div_ceil(1024) as i64).unwrap_or(0)
     }
 
-    fn get_photo_date(&self) -> DateTime<Utc> {
-        let result: ShellReturn = sh!("exiftool -DateTimeOriginal -fast2 -s3 {}", self.to_string_lossy());
-
-        if result.err_code == 0 && let Ok(ndt) = NaiveDateTime::parse_from_str(result.stdout.trim(), "%Y:%m:%d %H:%M:%S") {
-            return ndt.and_utc();
-        }
-
-        DateTime::<Utc>::from_timestamp(0, 0).unwrap_or_default()
+    fn get_photo_date(&self, info: &ImageInfo) -> DateTime<Utc> {
+        info.get("DateTimeOriginal")
+            .and_then(|s| NaiveDateTime::parse_from_str(s.trim(), "%Y:%m:%d %H:%M:%S").ok())
+            .map(|ndt| ndt.and_utc())
+            .unwrap_or_default()
     }
 
-    fn get_photo_timezone(&self) -> String {
-        let result = sh!("exiftool -s3 -fast2 -OffsetTimeOriginal {}", self.to_string_lossy());
-
-        match result.err_code {
-            0 => {
-                let tz = result.stdout.trim();
-                if tz.len() == 6 && (tz.starts_with('+') || tz.starts_with('-')) {
-                    tz.to_string()
-                } else {
-                    "+09:00".to_string()
-                }
-            }
-            _ => "+09:00".to_string(),
-        }
+    fn get_photo_timezone(&self, info: &ImageInfo) -> String {
+        info.get("OffsetTimeOriginal")
+            .filter(|tz| tz.len() == 6 && (tz.starts_with('+') || tz.starts_with('-')))
+            .cloned()
+            .unwrap_or_else(|| "+09:00".to_string())
     }
 
-
-    fn get_resolution(&self) -> Vec<i64> {
-        let result = sh!("exiftool -fast2 -s3 -ImageWidth -ImageHeight {}", self.to_string_lossy());
-
-        if result.err_code == 0 {
-            let lines: Vec<&str> = result.stdout.lines().collect();
-            if lines.len() >= 2 {
-                return vec![
-                    lines[0].trim().parse::<i64>().unwrap_or(0),
-                    lines[1].trim().parse::<i64>().unwrap_or(0),
-                ];
-            }
-        }
-
-        vec![0, 0]
+    fn get_resolution(&self, info: &ImageInfo) -> Vec<i64> {
+        vec![
+            info.get("ImageWidth").and_then(|s| s.parse().ok()).unwrap_or(0),
+            info.get("ImageHeight").and_then(|s| s.parse().ok()).unwrap_or(0),
+        ]
     }
 
-    fn get_mime(&self) -> String {
-        let result = sh!("exiftool -s3 -fast2 -MIMEType {}", self.to_string_lossy());
-
-        match result.err_code {
-            0 => result.stdout.trim().to_string(),
-            _ => "application/octet-stream".to_string(),
-        }
+    fn get_mime(&self, info: &ImageInfo) -> String {
+        info.get("MIMEType").cloned().unwrap_or_else(|| "application/octet-stream".to_string())
     }
 
-    fn get_camera_model(&self) -> String {
-        let result = sh!("exiftool -s3 -fast2 -Model {}", self.to_string_lossy());
-
-        match result.err_code {
-            0 => result.stdout.trim().to_string(),
-            _ => "Unknown Camera".to_string(),
-        }
+    fn get_camera_model(&self, info: &ImageInfo) -> String {
+        info.get("Model").cloned().unwrap_or_else(|| "Unknown Camera".to_string())
     }
 
-    fn get_lens_model(&self) -> String {
-        let result = sh!("exiftool -s3 -fast2 -LensModel {}", self.to_string_lossy());
-
-        // Try `-LensModel` first
-        if result.err_code == 0 {
-            let lens_model = result.stdout.trim().to_string();
-            if !lens_model.is_empty() {
-                return lens_model;
-            }
-        }
-
-        // Try `-Lens` if `-LensModel` returns nothing
-        let result = sh!("exiftool -s3 -fast2 -Lens {}", self.to_string_lossy());
-        match result.err_code {
-            0 => result.stdout.trim().to_string(),
-            _ => "Unknown Lens".to_string(),
-        }
+    fn get_lens_model(&self, info: &ImageInfo) -> String {
+        ["LensModel", "Lens"].iter()
+            .find_map(|&tag| info.get(tag).filter(|s| !s.is_empty()).cloned())
+            .unwrap_or_else(|| "Unknown Lens".to_string())
     }
 
-    fn get_shutter_count(&self) -> i64 {
-        let tags = ["ImageCount", "ShutterCount", "Canon:ShutterCount"];
-
-        // Try a bunch of tags because metadata may be inconsistent across various camera brands
-        for tag in tags {
-            let result = sh!("exiftool -s3 -fast1 -{} {}", tag, self.to_string_lossy());
-
-            if result.err_code == 0 && let Ok(count) = result.stdout.trim().parse::<i64>() && count != 0 {
-                return count;
-            }
-        }
-        
-        0
+    fn get_shutter_count(&self, info: &ImageInfo) -> i64 {
+        ["ImageCount", "ShutterCount", "Canon:ShutterCount"].iter()
+            .find_map(|&tag| info.get(tag)?.parse::<i64>().ok().filter(|&c| c != 0))
+            .unwrap_or(0)
     }
 
-    fn get_focal_length(&self) -> i16 {
-        let result = sh!("exiftool -s3 -fast2 -FocalLength {}", self.to_string_lossy());
-
-        match result.err_code {
-            0 => {
-                // result.stdout might look like "50.0 mm"
-                let trimmed = result.stdout.split_whitespace().next().unwrap_or("0");
-                trimmed.parse::<f32>().unwrap_or(0.0).round() as i16
-            }
-            _ => 0,
-        }
+    fn get_focal_length(&self, info: &ImageInfo) -> i16 {
+        info.get("FocalLength")
+            .and_then(|s| s.split_whitespace().next()?.parse::<f32>().ok())
+            .map(|f| f.round() as i16)
+            .unwrap_or(0)
     }
 
-
-    fn get_iso(&self) -> i64 {
-        let result = sh!("exiftool -s3 -fast2 -ISO {}", self.to_string_lossy());
-
-        match result.err_code {
-            0 => result.stdout.split_whitespace().next().unwrap_or("0").parse::<i64>().unwrap_or(0),
-            _ => 0,
-        }
+    fn get_iso(&self, info: &ImageInfo) -> i64 {
+        info.get("ISO")
+            .and_then(|s| s.split_whitespace().next()?.parse().ok())
+            .unwrap_or(0)
     }
 
-
-    fn get_shutter_speed(&self) -> String {
-        let result = sh!("exiftool -s3 -fast2 -ShutterSpeed {}", self.to_string_lossy());
-
-        match result.err_code {
-            0 => result.stdout.trim().to_string(),
-            _ => "Unknown".to_string(),
-        }
+    fn get_shutter_speed(&self, info: &ImageInfo) -> String {
+        info.get("ShutterSpeed").cloned().unwrap_or_else(|| "Unknown".to_string())
     }
 
-    fn get_aperture(&self) -> f32 {
-        let result = sh!("exiftool -s3 -fast2 -Aperture {}", self.to_string_lossy());
-
-        match result.err_code {
-            0 => result.stdout.split_whitespace().next().unwrap_or("0").parse::<f32>().unwrap_or(0.0),
-            _ => 0.0,
-        }
+    fn get_aperture(&self, info: &ImageInfo) -> f32 {
+        info.get("Aperture")
+            .and_then(|s| s.split_whitespace().next()?.parse().ok())
+            .map(|aperture: f32| (aperture * 10.0).round() / 10.0)
+            .unwrap_or(0.0)
     }
 
     fn to_db_entry(&self) -> NewDbAsset {
-        let resolution = self.get_resolution();
+        let info = image_info(self).unwrap_or_default();
+        let res = self.get_resolution(&info);
         NewDbAsset {
             parent_id: None,
             thumbnail_path: None,
             hash: self.get_hash(),
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
             size_on_disk: self.get_size_on_disk(),
-            photo_date: self.get_photo_date(),
-            photo_timezone: self.get_photo_timezone(),
-            resolution_width: resolution[0],
-            resolution_height: resolution[1],
-            mime_type: self.get_mime(),
-            camera_model: self.get_camera_model(),
-            lens_model: self.get_lens_model(),
-            shutter_count: self.get_shutter_count(),
-            focal_length: self.get_focal_length(),
-            iso: self.get_iso(),
-            shutter_speed: self.get_shutter_speed(),
-            aperture: self.get_aperture(),
+            photo_date: self.get_photo_date(&info),
+            photo_timezone: self.get_photo_timezone(&info),
+            resolution_width: res[0],
+            resolution_height: res[1],
+            mime_type: self.get_mime(&info),
+            camera_model: self.get_camera_model(&info),
+            lens_model: self.get_lens_model(&info),
+            shutter_count: self.get_shutter_count(&info),
+            focal_length: self.get_focal_length(&info),
+            iso: self.get_iso(&info),
+            shutter_speed: self.get_shutter_speed(&info),
+            aperture: self.get_aperture(&info),
         }
     }
 }

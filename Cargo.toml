@@ -15,10 +15,10 @@ sea-orm = { version = "2.0.1", features = [
 uuid = { version = "1.24.0", features = ["v7", "serde"] }
 
 
-chrono = { version = "0.4.42", features = ["serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 anyhow = "1.0.104"
 serde = "1.0.229"
-clap = { version = "4.6.5", features = ["derive"] }
+clap = { version = "4.6.6", features = ["derive"] }
 infer = "0.22.0"
 xxhash-rust = { version = "0.8.18", features = ["xxh3"] }
 Inflector = { version = "0.11.4", default-features = false }
@@ -27,3 +27,4 @@ axum = "0.8.9"
 tokio = { version = "1.52.3", features = ["full"] }
 tower-http = { version = "0.7.0", features = ["fs", "cors"] }
 tower = "0.5.3"
+exiftool-rs = "0.7.4"

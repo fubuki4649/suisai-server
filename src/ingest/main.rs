@@ -38,6 +38,8 @@ pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
     let available_threads = std::thread::available_parallelism().unwrap_or(NonZero::new(8).unwrap()).get();
     let mut workers = JoinSet::new();
 
+    println!("Starting ingest with {} threads", available_threads);
+
     // Launch workers equal to the number of threads to ingest in parallel
     for _ in 0..available_threads {
         let rx = shared_rx.clone();
@@ -89,9 +91,9 @@ pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
                     let mut new_db_asset = asset_new_path.to_db_entry();
 
                     // Generate Thumbnail
-                    let date = asset_new_path.get_photo_date();
+                    let date = new_db_asset.photo_date;
                     let thumbnail_filename = format!("{}.jpeg", asset_new_path.file_stem().unwrap().to_string_lossy());
-                    let thumbnail_path_rel = PathBuf::from(format!("/{}{:02}", date.year(), date.month())).join(&thumbnail_filename);
+                    let thumbnail_path_rel = PathBuf::from(format!("{}{:02}", date.year(), date.month())).join(&thumbnail_filename);
                     let thumbnail_path_abs = thumbnail_root.join(&thumbnail_path_rel);
 
                     match extract_thumbnail_full(asset_new_path.to_str().unwrap(), thumbnail_path_abs.parent().unwrap().to_string_lossy().as_ref(), &thumbnail_filename) {

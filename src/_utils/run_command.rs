@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub struct ShellReturn {
     pub err_code: u8,
     pub stdout: String,

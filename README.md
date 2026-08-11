@@ -10,7 +10,6 @@ Backend server for suisai
 
 ## Dependencies
 
-- `exiftool` - for extracting EXIF metadata
 - `dcraw` - for reading raw files (thumbnail generation)
 - `cjpeg` - for encoding to JPEG (thumbnail generation)
 
