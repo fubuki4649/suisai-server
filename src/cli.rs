@@ -30,15 +30,7 @@ pub async fn run_cli(state: AppState) {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::StartServer { } => {
-            // Spawn the endpoints on its own async task
-            let web_handle = tokio::spawn(async move {
-                start_webserver(state).await;
-            });
-
-            // Await the endpoints to keep the process alive
-            let _ = web_handle.await;
-        }
+        Commands::StartServer { } => start_webserver(state).await,
         Commands::Ingest { source, no_preserve } => {
             check_cli_deps().unwrap();
             ingest(&state.db, source, no_preserve).await;

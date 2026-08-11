@@ -126,7 +126,7 @@ pub async fn new_collection_handler(State(state): State<AppState>, input: Json<V
 /// Renames an existing collection and moves its directory on disk
 ///
 /// # Route
-/// `PATCH /collection/:id/rename`
+/// `PATCH /collection/{id}/rename`
 ///
 /// # URL Parameters
 /// - `id`: UUID of the collection to rename
@@ -170,7 +170,7 @@ pub async fn rename_collection(Path(id): Path<String>, State(state): State<AppSt
 /// Sub-collections are moved to root; asset files are moved to the unfiled directory.
 ///
 /// # Route
-/// `DELETE /collection/:id/delete`
+/// `DELETE /collection/{id}/delete`
 ///
 /// # URL Parameters
 /// - `id`: UUID of the collection to delete
@@ -200,7 +200,7 @@ pub async fn del_collection(Path(id): Path<String>, State(state): State<AppState
 /// Retrieves all assets belonging to a given collection
 ///
 /// # Route
-/// `GET /collection/:id/assets`
+/// `GET /collection/{id}/assets`
 ///
 /// # URL Parameters
 /// - `id`: UUID of the collection
