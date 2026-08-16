@@ -5,6 +5,7 @@ use crate::endpoints::meow::health_check;
 use crate::endpoints::thumbnail::get_thumbnail;
 use crate::state::AppState;
 use axum::{routing::get, Router};
+use axum::routing::{delete, patch, post};
 use tower_http::cors::CorsLayer;
 
 /// Initializes and launches the Axum HTTP web server.
@@ -21,19 +22,19 @@ pub async fn start_webserver(state: AppState) {
     let app = Router::new()
         .route("/meow", get(health_check))
         .route("/thumbnail/{hash}", get(get_thumbnail))
-        .route("/asset/get", axum::routing::post(get_assets))
-        .route("/asset/delete", axum::routing::delete(del_asset))
+        .route("/asset/get", post(get_assets))
+        .route("/asset/delete", delete(del_asset))
         .route("/collection/tree", get(get_collection_tree))
         .route("/collection/flat", get(get_collection_flat))
-        .route("/collection/new", axum::routing::post(new_collection_handler))
+        .route("/collection/new", post(new_collection_handler))
         .route("/collection/unfiled/assets", get(unfiled_assets))
-        .route("/collection/{id}/rename", axum::routing::patch(rename_collection))
-        .route("/collection/{id}/delete", axum::routing::delete(del_collection))
+        .route("/collection/{id}/rename", patch(rename_collection))
+        .route("/collection/{id}/delete", delete(del_collection))
         .route("/collection/{id}/assets", get(assets_in_collection))
-        .route("/management/asset/unfile", axum::routing::post(unfile_asset))
-        .route("/management/asset/reassign", axum::routing::post(reassign_asset))
-        .route("/management/collection/unfile", axum::routing::post(unfile_collection))
-        .route("/management/collection/reassign", axum::routing::post(reassign_collection))
+        .route("/management/asset/unfile", post(unfile_asset))
+        .route("/management/asset/reassign", post(reassign_asset))
+        .route("/management/collection/unfile", post(unfile_collection))
+        .route("/management/collection/reassign", post(reassign_collection))
         .layer(CorsLayer::permissive())
         .with_state(state);
 

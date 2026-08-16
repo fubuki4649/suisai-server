@@ -1,7 +1,7 @@
 use crate::db::entities::assets;
 use crate::models::asset::{Asset, NewDbAsset, UpdateAsset};
 use crate::patch_fields;
-use sea_orm::{entity::{EntityTrait, ActiveModelTrait, ColumnTrait}, DatabaseConnection, DbErr, QueryFilter, Set};
+use sea_orm::{entity::{EntityTrait, ActiveModelTrait, ColumnTrait}, DatabaseConnection, DbErr, QueryFilter, QueryOrder, Set};
 
 /// Creates a new asset in the database
 ///
@@ -56,6 +56,9 @@ pub async fn delete_asset(db: &DatabaseConnection, asset_ids: Vec<String>) -> Re
     // Fetch
     let assets = assets::Entity::find()
         .filter(assets::Column::Id.is_in(asset_ids.clone()))
+        .order_by_asc(assets::Column::PhotoDate)
+        .order_by_asc(assets::Column::ShutterCount)
+        .order_by_asc(assets::Column::FileName)
         .all(db)
         .await?;
 
@@ -143,6 +146,9 @@ pub async fn get_assets(db: &DatabaseConnection, asset_ids: &[String]) -> Result
 
     assets::Entity::find()
         .filter(assets::Column::Id.is_in(asset_ids.to_vec()))
+        .order_by_asc(assets::Column::PhotoDate)
+        .order_by_asc(assets::Column::ShutterCount)
+        .order_by_asc(assets::Column::FileName)
         .into_partial_model::<Asset>()
         .all(db)
         .await
@@ -162,5 +168,11 @@ pub async fn get_assets_by_parent(db: &DatabaseConnection, parent_id: Option<Str
         Some(id) => query.filter(assets::Column::ParentId.eq(id)),
         None => query.filter(assets::Column::ParentId.is_null()),
     };
-    query.into_partial_model::<Asset>().all(db).await
+    query
+        .order_by_asc(assets::Column::PhotoDate)
+        .order_by_asc(assets::Column::ShutterCount)
+        .order_by_asc(assets::Column::FileName)
+        .into_partial_model::<Asset>()
+        .all(db)
+        .await
 }
