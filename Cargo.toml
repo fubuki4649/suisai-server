@@ -6,26 +6,41 @@ edition = "2024"
 [dependencies]
 dotenvy = "0.15.7"
 
-sea-orm = { version = "2.0.2", features = [
+sea-orm = { version = "2.0.2", default-features = false, features = [
     "sqlx-sqlite",
-    "runtime-tokio-rustls",
+    "runtime-tokio",
     "macros",
-    "with-uuid"
+    "with-chrono"
 ] }
-uuid = { version = "1.24.0", features = ["v7", "serde"] }
+uuid = { version = "1.24.0", features = ["v7"] }
 
-
-chrono = { version = "0.4.45", features = ["serde"] }
+chrono = { version = "0.4.45", default-features = false, features = ["std", "serde"] }
 anyhow = "1.0.104"
-serde = "1.0.229"
-clap = { version = "4.6.6", features = ["derive"] }
+serde = { version = "1.0.229", features = ["derive"] }
+clap = { version = "4.6.6", default-features = false, features = [
+    "std",
+    "derive",
+    "help",
+    "usage"
+] }
 infer = "0.22.0"
 xxhash-rust = { version = "0.8.18", features = ["xxh3"] }
 Inflector = { version = "0.11.4", default-features = false }
 serde_json = "1.0.151"
-axum = "0.8.9"
-tokio = { version = "1.53.1", features = ["full"] }
+axum = { version = "0.8.9", default-features = false, features = [
+    "tokio",
+    "http2",
+    "json"
+] }
+tokio = { version = "1.53.1", features = [
+    "macros",
+    "rt-multi-thread",
+    "net",
+    "fs",
+    "io-util",
+    "sync"
+] }
 tower-http = { version = "0.7.0", features = ["fs", "cors"] }
-tower = "0.5.3"
+tower = { version = "0.5.3", features = ["util"] }
 exiftool-rs = "0.7.4"
 rawlib = "0.7.1"
