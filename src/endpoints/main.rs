@@ -4,8 +4,8 @@ use crate::endpoints::management::{reassign_asset, reassign_collection, unfile_a
 use crate::endpoints::meow::health_check;
 use crate::endpoints::thumbnail::get_thumbnail;
 use crate::state::AppState;
-use axum::{routing::get, Router};
-use axum::routing::{delete, patch, post};
+use axum::routing::{delete, get, patch, post};
+use axum::Router;
 use tower_http::cors::CorsLayer;
 
 /// Initializes and launches the Axum HTTP web server.
