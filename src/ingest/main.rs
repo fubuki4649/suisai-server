@@ -96,9 +96,9 @@ pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
                     let thumbnail_path_rel = PathBuf::from(format!("{}{:02}", date.year(), date.month())).join(&thumbnail_filename);
                     let thumbnail_path_abs = thumbnail_root.join(&thumbnail_path_rel);
 
-                    match extract_thumbnail_full(asset_new_path.to_str().unwrap(), thumbnail_path_abs.parent().unwrap().to_string_lossy().as_ref(), &thumbnail_filename) {
+                    match extract_thumbnail_full(&asset_new_path, &thumbnail_path_abs) {
                         Ok(()) => {
-                            println!("Thumbnail created at {}", thumbnail_path_abs.join(&thumbnail_filename).display());
+                            println!("Thumbnail created at {}", thumbnail_path_abs.display());
                             new_db_asset.thumbnail_path = Some(thumbnail_path_rel.to_string_lossy().to_string());
                         },
                         Err(e) => println!("Error creating thumbnail for {}: {e}", asset_new_path.display()),
