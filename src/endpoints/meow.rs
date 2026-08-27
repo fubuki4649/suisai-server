@@ -1,5 +1,4 @@
-use rocket::get;
-use rocket::http::Status;
+use axum::http::StatusCode;
 
 /// Simple health check endpoint to verify API is responding
 ///
@@ -8,7 +7,6 @@ use rocket::http::Status;
 ///
 /// # Returns
 /// - `418 I'm a teapot`: API is up and running
-#[get("/meow")]
-pub fn health_check() -> (Status, &'static str) {
-    (Status::ImATeapot, "/ᐠ ˵> ⩊ <˵ マ\n")
+pub async fn health_check() -> (StatusCode, &'static str) {
+    (StatusCode::IM_A_TEAPOT, "/ᐠ ˵> ⩊ <˵ マ\n")
 }

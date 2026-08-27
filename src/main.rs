@@ -1,10 +1,7 @@
 use crate::cli::run_cli;
-use crate::preflight::check_directories;
-use diesel::r2d2::ConnectionManager;
-use diesel::MysqlConnection;
+use crate::preflight::{check_database, check_directories};
+use crate::state::AppState;
 use dotenvy::dotenv;
-use std::env;
-use std::sync::LazyLock;
 
 mod db;
 mod endpoints;
@@ -14,30 +11,22 @@ mod _utils;
 mod preflight;
 mod models;
 mod fs_operations;
-
-type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
-
-static DB_POOL: LazyLock<Pool> = LazyLock::new(|| {
-    establish_connection_pool()
-});
+mod state;
 
 
-/// Function to establish database connection pool
-fn establish_connection_pool() -> Pool {
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let manager = ConnectionManager::<MysqlConnection>::new(database_url);
-    Pool::builder()
-        .build(manager)
-        .expect("Failed to create pool")
-}
 
-
-#[rocket::main]
+#[tokio::main]
 async fn main() {
     dotenv().ok();
-    
-    // Run preflight checks
+
+    // Run directory preflight checks (creates storage dirs & database parent dirs)
     check_directories().unwrap();
+
+    // Initialize DB
+    let db = check_database().await.unwrap();
+
+    // Initialize global state
+    let state = AppState { db };
     
-    run_cli().await;
+    run_cli(state).await;
 }

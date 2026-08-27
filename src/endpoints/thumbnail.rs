@@ -1,31 +1,49 @@
-use crate::db::operations::photo::check_hash;
-use crate::db::operations::thumbnail::get_thumbnail as get_thumbs;
-use crate::{msg, unwrap_err, DB_POOL};
-use rocket::fs::NamedFile;
-use rocket::get;
-use rocket::http::Status;
-use rocket::serde::json::Json;
+use axum::extract::{Path, Request, State};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::Json;
 use serde_json::Value;
+use std::path::PathBuf;
+use tower::ServiceExt;
+use tower_http::services::ServeFile;
 
-/// Hash-based thumbnail serving
+use crate::db::operations::asset::check_hash;
+use crate::msg;
+use crate::state::AppState;
+
+/// Hash-based thumbnail serving endpoint for Axum
+///
+/// Looks up an asset by its `xxh3_128` content hash in the database,
+/// extracts the stored `thumbnail_path` from the `Asset` model, and streams
+/// the JPEG file back to the client.
 ///
 /// # Route
-/// `GET /thumbnail/<hash>`
+/// `GET /thumbnail/{hash}`
+///
+/// # URL Parameters
+/// - `hash`: The 32-character hexadecimal xxh3 content hash of the asset
 ///
 /// # Returns
-/// - `200 OK`: The thumbnail for the image with <hash>, in JPEG format
-/// - `404 Not Found`: No image with hash <hash> was found
-/// - `500 Internal Server Error`: Database or other server error occurred
-#[get("/thumbnail/<hash>")]
-pub async fn get_thumbnail(hash: &str) -> Result<NamedFile, (Status, Json<Value>)> {
-    let mut conn = unwrap_err!(DB_POOL.get(), Status::InternalServerError);
-    let photo = unwrap_err!(check_hash(&mut conn, hash), Status::InternalServerError);
+/// - `200 OK`: The thumbnail image file (JPEG)
+/// - `404 Not Found`: No asset matches the provided hash, or thumbnail has not been generated
+/// - `500 Internal Server Error`: Database query error or file reading failure
+pub async fn get_thumbnail(Path(hash): Path<String>, State(state): State<AppState>, req: Request) -> Result<Response, (StatusCode, Json<Value>)> {
+    // Fetch asset from database using the content hash
+    let asset = check_hash(&state.db, &hash).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?
+        .ok_or_else(|| (StatusCode::NOT_FOUND, msg!("No photo with hash {} found", hash)))?;
 
-    match photo {
-        Some(photo) => {
-            let thumb = unwrap_err!(get_thumbs(&mut conn, photo.id), Status::InternalServerError);
-            Ok(unwrap_err!(NamedFile::open(thumb.thumbnail_path).await, Status::InternalServerError))
-        },
-        None => Err((Status::NotFound, msg!("No photo with hash {} found"))),
-    }
+    // Extract thumbnail path and resolve it against $THUMBNAIL_ROOT
+    let relative_thumb = asset.thumbnail_path
+        .ok_or_else(|| (StatusCode::NOT_FOUND, msg!("No thumbnail generated for asset with hash {}", hash)))?;
+
+    let thumbnail_root = std::env::var("THUMBNAIL_ROOT")
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, msg!("$THUMBNAIL_ROOT is not set")))?;
+
+    let thumb_path = PathBuf::from(thumbnail_root).join(relative_thumb);
+
+    // Serve the thumbnail file
+    Ok(ServeFile::new(thumb_path).oneshot(req).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?
+        .into_response())
 }

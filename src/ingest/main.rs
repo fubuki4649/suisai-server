@@ -1,107 +1,122 @@
-use crate::db::operations::photo::{check_hash, create_photo};
-use crate::db::operations::thumbnail::create_thumbnail;
-use crate::ingest::extract_thumbnail::extract_thumbnail_full;
-use crate::ingest::get_image_paths::get_image_paths;
-use crate::ingest::trait_suisai_image_path::SuisaiImagePath;
-use crate::models::thumbnail::Thumbnail;
-use crate::DB_POOL;
+use crate::db::operations::asset::{check_hash, new_asset};
+use crate::ingest::helpers::extract_thumbnail::extract_thumbnail_full;
+use crate::ingest::helpers::hash_and_transfer::hash_and_transfer;
+use crate::ingest::helpers::search_path::search_path_for_assets;
+use crate::ingest::traits::SuisaiAsset;
 use chrono::Datelike;
-use rocket::serde::json::serde_json;
+use sea_orm::DatabaseConnection;
 use std::env;
-use std::fs::{copy, create_dir_all, rename};
-use std::path::Path;
+use std::num::NonZero;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::fs::{create_dir_all, remove_file};
+use tokio::sync::Mutex;
+use tokio::task::JoinSet;
 
-/// Ingests images from a directory into the photo library, including database storage and thumbnail generation
-pub fn ingest(path: String, dry: bool, no_preserve: bool) {
-    println!("Ingesting files from: {path}");
-    if dry {
-        println!("Running in dry mode");
+/// Ingests photos from a directory as a suisai asset, including database storage and thumbnail generation
+pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
+
+    // Set up destination directories
+    let storage_root = PathBuf::from(env::var("STORAGE_ROOT").unwrap());
+    let thumbnail_root = PathBuf::from(env::var("THUMBNAIL_ROOT").unwrap());
+    let dest_dir = storage_root.join("unfiled");
+    create_dir_all(&dest_dir).await.unwrap_or_else(|_| panic!("Failed to create directory {}", dest_dir.display()));
+
+    // Set up send/receive channels for multithreading
+    let (tx, rx) = tokio::sync::mpsc::channel::<PathBuf>(100);
+    let shared_rx = Arc::new(Mutex::new(rx));
+
+    // Launch producer to probe for files to ingest
+    tokio::task::spawn_blocking(move || {
+        println!("Ingesting files from: {path}");
+        search_path_for_assets(&PathBuf::from(path), &tx).unwrap_or_else(|err| {
+            eprintln!("Error searching for assets: {}", err);
+        });
+        drop(tx);
+    });
+
+    let available_threads = std::thread::available_parallelism().unwrap_or(NonZero::new(8).unwrap()).get();
+    let mut workers = JoinSet::new();
+
+    println!("Starting ingest with {} threads", available_threads);
+
+    // Launch workers equal to the number of threads to ingest in parallel
+    for _ in 0..available_threads {
+        let rx = shared_rx.clone();
+        let db = db.clone();
+        let dest_dir = dest_dir.clone();
+        let thumbnail_root = thumbnail_root.clone();
+
+        workers.spawn(async move {
+            loop {
+                let path = {
+                    let mut guard = rx.lock().await;
+                    guard.recv().await
+                };
+
+                let Some(path) = path else { break };
+
+                let filename = path.file_name().unwrap_or_default().to_string_lossy();
+                let asset_new_path = dest_dir.join(filename.as_ref());
+
+                // Copy and read the hash in the same pass (we can delete it later if we don't need it)
+                // Much better for ingesting straight from SD cards/slow network sources
+                let (hash, bytes_transferred) = match hash_and_transfer(&path, &asset_new_path, no_preserve).await {
+                    Ok(result) => result,
+                    Err(e) => {
+                        println!("Error transferring {filename}: {e}");
+                        continue;
+                    }
+                };
+
+                println!("{} {filename} to {} ({bytes_transferred} bytes)", if no_preserve { "Moved" } else { "Copied" }, dest_dir.display());
+
+                // Check for duplicate after transfer — if duplicate, discard the transferred file
+                match check_hash(&db, &hash).await {
+                    Err(e) => panic!("Database Error: {e}"),
+                    Ok(Some(_)) => {
+                        println!("Hash {hash} already exists in database, discarding");
+                        if let Err(e) = remove_file(&asset_new_path).await {
+                            println!("Warning: failed to remove duplicate file {}: {e}", asset_new_path.display());
+                        }
+                        continue;
+                    },
+                    Ok(None) => (),
+                }
+
+                // Generate thumbnail and build DB entry
+                let thumbnail_root = thumbnail_root.clone();
+                let new_db_asset = tokio::task::spawn_blocking(move || {
+                    // Build DB entry
+                    let mut new_db_asset = asset_new_path.to_db_entry();
+
+                    // Generate Thumbnail
+                    let date = new_db_asset.photo_date;
+                    let thumbnail_filename = format!("{}.jpeg", asset_new_path.file_stem().unwrap().to_string_lossy());
+                    let thumbnail_path_rel = PathBuf::from(format!("{}{:02}", date.year(), date.month())).join(&thumbnail_filename);
+                    let thumbnail_path_abs = thumbnail_root.join(&thumbnail_path_rel);
+
+                    match extract_thumbnail_full(&asset_new_path, &thumbnail_path_abs) {
+                        Ok(()) => {
+                            println!("Thumbnail created at {}", thumbnail_path_abs.display());
+                            new_db_asset.thumbnail_path = Some(thumbnail_path_rel.to_string_lossy().to_string());
+                        },
+                        Err(e) => println!("Error creating thumbnail for {}: {e}", asset_new_path.display()),
+                    };
+
+                    new_db_asset
+                }).await.unwrap();
+
+                // Insert into DB
+                println!("Adding {filename} to database");
+                match new_asset(&db, new_db_asset).await {
+                    Err(e) => println!("Error: {e}"),
+                    Ok(id) => println!("Created asset with database ID {id}")
+                };
+            }
+        });
     }
 
-    // Get a list of images from the source directory 
-    let paths = get_image_paths(Path::new(&path));
-
-    // In dry run mode, just print what would happen without making changes
-    if dry {
-        for path in paths {
-            println!("{}", serde_json::to_string_pretty(&path.to_db_entry()).unwrap());
-        }
-        return;
-    }
-
-    // Initialize DB connection and set up storage paths
-    let mut conn = DB_POOL.get().expect("Failed to get connection from pool");
-    let raw_storage_dir = format!("{}/", env::var("STORAGE_ROOT").unwrap());
-    let raw_storage_path = Path::new(&raw_storage_dir);
-
-    // Iterate over all found paths
-    for path in paths {
-        // Skip if this image is already in the database
-        let hash = path.get_hash();
-        if check_hash(&mut conn, &hash).unwrap_or_else(|_| panic!("Database error while checking hash: {hash}")).is_some() {
-            println!("Hash {hash} already exists in database, skipping");
-            continue;
-        }
-
-        // Prepare destination directory (`$STORAGE_ROOT/unfiled`), creating it if necessary
-        let dest_directory = raw_storage_path.join("unfiled");
-        create_dir_all(&dest_directory).unwrap_or_else(|_| panic!("Failed to create directory {}", dest_directory.to_str().unwrap()));
-
-        // Copy or move the image file to the storage location
-        let filename = path.file_name().unwrap_or_default().to_string_lossy();
-        let new_path = dest_directory.join(filename.to_string());
-        if no_preserve {
-            // Move if the `--no-preserve` flag is set
-            let move_result = rename(&path, &new_path);
-            match move_result {
-                Err(e) => println!("Error moving {} to {}: {}", filename, dest_directory.to_str().unwrap(), e),
-                _ => println!("Moved {} to {}", filename, dest_directory.to_str().unwrap())
-            }
-        } else {
-            // Copy, otherwise
-            let copy_result = copy(&path, &new_path);
-            match copy_result {
-                Err(e) => println!("Error copying {} to {}: {}", filename, dest_directory.to_str().unwrap(), e),
-                Ok(bytes) => println!("Copied {} to {} ({} bytes)", filename, dest_directory.to_str().unwrap(), bytes)
-            }
-        }
-
-        // Generate and store a JPEG thumbnail at `THUMBNAIL_ROOT/yyyymm/FILENAME.jpeg`
-        let date = new_path.get_photo_date();
-        let thumbnail_dir = format!("{}/{}{:02}/", env::var("THUMBNAIL_ROOT").unwrap(), date.year(), date.month());
-        let thumbnail_filename = format!("{}.jpeg", new_path.file_stem().unwrap().to_string_lossy());
-        let mut thumbnail_path = format!("{thumbnail_dir}{thumbnail_filename}");
-        // Create Thumbnail
-        match extract_thumbnail_full(new_path.to_str().unwrap(), &thumbnail_dir, &thumbnail_filename) {
-            Ok(()) => println!("Thumbnail created at {thumbnail_path}"),
-            Err(e) => {
-                thumbnail_path = String::new();
-                println!("Error creating thumbnail for {filename}: {e}");
-            }
-        }
-
-        // Create a database record for the image
-        let photo = new_path.to_db_entry();
-        println!("{}", serde_json::to_string_pretty(&photo).unwrap());
-
-        println!("Adding {} to database", photo.file_name);
-        let photo_id = match create_photo(&mut conn, photo) {
-            Err(e) => {
-                println!("Error: {e}");
-                return;
-            },
-            Ok(id) => id
-        };
-
-        // Create a database record for the thumbnail, if any
-        if !thumbnail_path.is_empty() {
-            let thumbnail = Thumbnail { id: photo_id, thumbnail_path };
-            create_thumbnail(&mut conn, &thumbnail).unwrap_or_else(|e| println!("Error: {e}"));
-        }
-
-        println!("Done");
-
-    }
-
+    workers.join_all().await;
     println!("Finished");
 }

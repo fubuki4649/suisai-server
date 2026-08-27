@@ -1,48 +1,42 @@
-use crate::db::schema::{album_album_join, album_photo_join, albums, photos};
-use diesel::prelude::*;
-use diesel::result::Error::DatabaseError;
-use diesel::result::{DatabaseErrorKind, Error};
-use diesel::MysqlConnection;
+use crate::db::entities::{assets, collections};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, QuerySelect};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-/// Gets an album's path, relative to $STORAGE_ROOT
+/// Gets a collection's path, relative to `$STORAGE_ROOT`
 ///
 /// # Arguments
-/// * `conn` - Database connection
-/// * `album_id` - ID of the album to get path for
+/// * `db` - Database connection
+/// * `collection_id` - UUID of the collection to get a path for
 ///
 /// # Returns
-/// The path of the album; Returns `diesel::result::Error::Unknown` if a cyclical path is detected
-pub fn get_album_path(conn: &mut MysqlConnection, album_id: i32) -> Result<PathBuf, Error> {
+/// The path of the collection; Returns a `DbErr::Custom` if a cyclical path is detected
+pub async fn get_collection_path(db: &DatabaseConnection, collection_id: String) -> Result<PathBuf, DbErr> {
 
-    // Collect the chain of album names from the current album up to root
+    // Collect the chain of collection labels from the current collection up to root to build a
+    // path by climbing an inverse tree
     let mut segments: Vec<String> = Vec::new();
-    let mut current_id: Option<i32> = Some(album_id);
-    let mut seen: HashSet<i32> = HashSet::new();
+    let mut current_id: Option<String> = Some(collection_id);
+    let mut seen: HashSet<String> = HashSet::new();
 
-    while let Some(aid) = current_id {
+    while let Some(cid) = current_id {
         // Check for cycles (shouldn't happen, but just in case)
-        if !seen.insert(aid) {
-            return Err(DatabaseError(DatabaseErrorKind::Unknown, Box::new("A cycle is detected in the album relation table. This should never happen unless the table is corrupted!".to_string())));
+        if !seen.insert(cid.clone()) {
+            return Err(DbErr::Custom("Cycle detected in collection relations! This is a catastrophic error that usually means data corruption".to_owned()));
         }
 
-        // Fetch the album_name for this album id
-        let name: String = albums::table
-            .find(aid)
-            .select(albums::album_name)
-            .first::<String>(conn)?;
-        segments.push(name);
+        // Fetch the label and parent_id for this collection
+        let (label, parent_id): (String, Option<String>) = collections::Entity::find_by_id(cid.clone())
+            .select_only()
+            .column(collections::Column::Label)
+            .column(collections::Column::ParentId)
+            .into_tuple()
+            .one(db)
+            .await?
+            .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {cid} not found")))?;
 
-        // Find parent album, if any. If multiple parents exist, choose the one with the lowest parent_id for determinism.
-        let parent: Option<i32> = album_album_join::table
-            .filter(album_album_join::album_id.eq(aid))
-            .select(album_album_join::parent_id)
-            .order(album_album_join::parent_id.asc())
-            .first::<i32>(conn)
-            .optional()?;
-
-        current_id = parent;
+        segments.push(label);
+        current_id = parent_id;
     }
 
     // Build the path from root to leaf: segments were collected leaf->root, so reverse
@@ -55,35 +49,32 @@ pub fn get_album_path(conn: &mut MysqlConnection, album_id: i32) -> Result<PathB
 }
 
 
-/// Gets a photo's path, relative to $STORAGE_ROOT
+/// Gets an asset's path, relative to `$STORAGE_ROOT`
 ///
 /// # Arguments
-/// * `conn` - Database connection
-/// * `photo_id` - ID of the photo to get path for
+/// * `db` - Database connection
+/// * `asset_id` - UUID of the asset to get path for
 ///
 /// # Returns
-/// The path of the photo
-pub fn get_photo_path(conn: &mut MysqlConnection, photo_id: i64) -> Result<PathBuf, Error> {
+/// The path of the asset
+pub async fn get_asset_path(db: &DatabaseConnection, asset_id: String) -> Result<PathBuf, DbErr> {
 
-    // Get the photo file name (and confirm the photo exists)
-    let file_name: String = photos::table
-        .find(photo_id)
-        .select(photos::file_name)
-        .first::<String>(conn)?;
+    // Get the asset file name and parent collection (and confirm the asset exists)
+    let (file_name, parent_id): (String, Option<String>) = assets::Entity::find_by_id(asset_id.clone())
+        .select_only()
+        .column(assets::Column::FileName)
+        .column(assets::Column::ParentId)
+        .into_tuple()
+        .one(db)
+        .await?
+        .ok_or_else(|| DbErr::RecordNotFound(format!("Asset {asset_id} not found")))?;
 
-    // Resolve a parent album if any
-    let parent_album: Option<i32> = album_photo_join::table
-        .filter(album_photo_join::photo_id.eq(photo_id))
-        .select(album_photo_join::parent_id)
-        .order(album_photo_join::parent_id.asc())
-        .first::<i32>(conn)
-        .optional()?;
-
-    let mut path = match parent_album {
-        Some(album_id) => get_album_path(conn, album_id)?,
-        None => PathBuf::new(), // Unfiled photo: place at root of storage
+    // Build the path
+    let mut path = match parent_id {
+        Some(collection_id) => get_collection_path(db, collection_id).await?,
+        None => PathBuf::from("unfiled"),
     };
-    
+
     path.push(file_name);
     Ok(path)
 }
