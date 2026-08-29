@@ -1,4 +1,3 @@
-use crate::ingest::helpers::sony_shutter::extract_sony_shutter_count;
 use crate::models::asset::NewDbAsset;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use exiftool_rs::{image_info, ImageInfo};
@@ -106,18 +105,12 @@ impl SuisaiAsset for PathBuf {
             "TotalShutterCount",
         ];
 
-        let count = SHUTTER_TAGS
+        SHUTTER_TAGS
             .iter()
-            .find_map(|&tag| info.get(tag)?.parse::<i64>().ok().filter(|&c| c != 0))
-            .unwrap_or(0);
-
-        if count != 0 {
-            return count;
-        }
-
-        // Pure-Rust fallback for Sony MakerNotes Tag 0x9050 / 0x2010
-        let model = info.get("Model").map(|s| s.as_str());
-        extract_sony_shutter_count(self, model).unwrap_or(0)
+            .filter_map(|&tag| info.get(tag))
+            .filter_map(|raw| raw.parse::<i64>().ok())
+            .find(|&count| count != 0)
+            .unwrap_or(0)
     }
 
     fn get_focal_length(&self, info: &ImageInfo) -> i16 {
@@ -172,9 +165,9 @@ impl SuisaiAsset for PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
     use std::fs;
     use std::path::PathBuf;
-    use serde_json::Value;
 
     #[test]
     fn test_sony_shutter_count_extraction() {
