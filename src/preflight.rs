@@ -14,6 +14,7 @@ pub fn check_directories() -> Result<(), anyhow::Error> {
     let thumbnail_root = PathBuf::from(env::var("THUMBNAIL_ROOT").map_err(|_| anyhow::anyhow!("$THUMBNAIL_ROOT not set"))?);
 
     let paths = [
+        storage_root.clone(),
         storage_root.join("unfiled"),
         thumbnail_root,
     ];
@@ -35,7 +36,7 @@ pub fn check_directories() -> Result<(), anyhow::Error> {
 }
 
 /// Ensures the database parent directory exists, connects to the database, and auto-creates
-/// required tables (`collections` & `assets`) if they do not exist.
+/// required tables (`collections` & `assets`) and indexes if they do not exist.
 pub async fn check_database() -> Result<DatabaseConnection, DbErr> {
     let database_url = env::var("DATABASE_URL")
         .map_err(|_| DbErr::Custom("$DATABASE_URL not set".into()))?;
@@ -52,10 +53,21 @@ pub async fn check_database() -> Result<DatabaseConnection, DbErr> {
     }
 
     let db = sea_orm::Database::connect(&database_url).await?;
+
+    // Enable WAL mode and foreign key constraints for SQLite
+    if database_url.starts_with("sqlite:") {
+        db.execute_unprepared("PRAGMA journal_mode = WAL;").await?;
+        db.execute_unprepared("PRAGMA foreign_keys = ON;").await?;
+    }
+
     let schema = Schema::new(db.get_database_backend());
 
     db.execute(schema.create_table_from_entity(collections::Entity).if_not_exists()).await?;
     db.execute(schema.create_table_from_entity(assets::Entity).if_not_exists()).await?;
+
+    // Create indexes on foreign keys to accelerate parent/unfiled lookups
+    db.execute_unprepared("CREATE INDEX IF NOT EXISTS idx_assets_parent_id ON assets(parent_id);").await?;
+    db.execute_unprepared("CREATE INDEX IF NOT EXISTS idx_collections_parent_id ON collections(parent_id);").await?;
 
     Ok(db)
 }

@@ -44,16 +44,48 @@ impl From<Collection> for CollectionTree {
 /// - `id`: Collection UUID (`"-1"` for the synthetic root node)
 /// - `label`: Collection label (root node label is a placeholder — ignore it)
 /// - `children`: Nested `CollectionTree` nodes
-pub async fn get_collection_tree(State(state): State<AppState>) -> Result<Json<CollectionTree>, (StatusCode, Json<Value>)> {
+fn validate_label(label: &str) -> Result<(), (StatusCode, Json<Value>)> {
+    let trimmed = label.trim();
+    if trimmed.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, msg!("Collection label cannot be empty")));
+    }
+    if trimmed.eq_ignore_ascii_case("unfiled") {
+        return Err((StatusCode::BAD_REQUEST, msg!("Collection label cannot be 'unfiled'")));
+    }
+    if trimmed.contains('/') || trimmed.contains('\\') || trimmed.contains("..") {
+        return Err((StatusCode::BAD_REQUEST, msg!("Collection label contains invalid characters")));
+    }
+    Ok(())
+}
 
-    // Recursively fill the children, grandchildren, etc of the node
-    fn build_subtree(parent_id: Option<&str>, all: &[Collection]) -> Vec<CollectionTree> {
+/// Retrieves the collection tree structure from the database
+///
+/// # Route
+/// `GET /collection/tree`
+///
+/// # Returns
+/// - `200 OK`: A tree structure representing all collections
+/// - `500 Internal Server Error`: Database error
+///
+/// # Response Body
+/// A tree node containing:
+/// - `id`: Collection UUID (`"-1"` for the synthetic root node)
+/// - `label`: Collection label (root node label is a placeholder — ignore it)
+/// - `children`: Nested `CollectionTree` nodes
+pub async fn get_collection_tree(State(state): State<AppState>) -> Result<Json<CollectionTree>, (StatusCode, Json<Value>)> {
+    // Recursively fill the children, grandchildren, etc of the node, guarded against cycles
+    fn build_subtree(parent_id: Option<&str>, all: &[Collection], visited: &mut std::collections::HashSet<String>) -> Vec<CollectionTree> {
         all.iter()
             .filter(|c| c.parent_id.as_deref() == parent_id)
-            .map(|c| CollectionTree {
-                id: c.id.clone(),
-                label: c.label.clone(),
-                children: build_subtree(Some(&c.id), all),
+            .filter_map(|c| {
+                if !visited.insert(c.id.clone()) {
+                    return None;
+                }
+                Some(CollectionTree {
+                    id: c.id.clone(),
+                    label: c.label.clone(),
+                    children: build_subtree(Some(&c.id), all, visited),
+                })
             })
             .collect()
     }
@@ -61,10 +93,11 @@ pub async fn get_collection_tree(State(state): State<AppState>) -> Result<Json<C
     let all = get_all_collections(&state.db).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
+    let mut visited = std::collections::HashSet::new();
     let tree = CollectionTree {
         id: "-1".to_string(),
         label: "Root Node - Not a Collection!!!".to_string(),
-        children: build_subtree(None, &all),
+        children: build_subtree(None, &all, &mut visited),
     };
 
     Ok(Json(tree))
@@ -97,28 +130,44 @@ pub async fn get_collection_flat(State(state): State<AppState>) -> Result<Json<V
 /// # Returns
 /// - `201 Created`: Collection was successfully created; body contains the new UUID
 /// - `400 Bad Request`: Missing or invalid `label`
+/// - `404 Not Found`: Parent collection does not exist
 /// - `500 Internal Server Error`: Database or filesystem error
 pub async fn new_collection_handler(State(state): State<AppState>, input: Json<Value>) -> Response {
     let label = input.get_value::<String>("label")
         .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
+
+    validate_label(&label)?;
 
     let parent_id = input.get_value::<Option<String>>("parent_id")
         .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
     // Resolve the parent path so we know where to create the directory
     let parent_path = match &parent_id {
-        Some(id) => get_collection_path(&state.db, id.clone()).await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?,
+        Some(id) => get_collection_path(&state.db, id).await
+            .map_err(|e| match e {
+                sea_orm::DbErr::RecordNotFound(_) => (StatusCode::NOT_FOUND, msg!("Parent collection not found")),
+                e => (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())),
+            })?,
         None => std::path::PathBuf::new(),
     };
 
-    // Create the directory on disk (path is relative to `$STORAGE_ROOT`, which Collection::create handles internally)
-    FsCollection::create(&parent_path.join(&label).to_string_lossy())
+    let dir_to_create = parent_path.join(&label);
+
+    // Create the directory on disk
+    FsCollection::create(&dir_to_create)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
     // Create the record in the database
-    let id = new_collection(&state.db, NewCollection { label, parent_id }).await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+    let id = match new_collection(&state.db, NewCollection { label: label.clone(), parent_id }).await {
+        Ok(id) => id,
+        Err(e) => {
+            if let Ok(storage_root) = std::env::var("STORAGE_ROOT") {
+                let full_path = std::path::PathBuf::from(storage_root).join(&dir_to_create);
+                let _ = std::fs::remove_dir(full_path);
+            }
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())));
+        }
+    };
 
     Ok((StatusCode::CREATED, msg!("Created collection {}", id)))
 }
@@ -144,9 +193,14 @@ pub async fn rename_collection(Path(id): Path<String>, State(state): State<AppSt
     let label = input.get_value::<String>("label")
         .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
+    validate_label(&label)?;
+
     // Resolve old path and compute new path (same parent, new label)
-    let old_path = get_collection_path(&state.db, id.clone()).await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+    let old_path = get_collection_path(&state.db, &id).await
+        .map_err(|e| match e {
+            sea_orm::DbErr::RecordNotFound(_) => (StatusCode::NOT_FOUND, msg!("Collection not found")),
+            e => (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())),
+        })?;
 
     let new_path = old_path.parent()
         .ok_or_else(|| (StatusCode::INTERNAL_SERVER_ERROR, msg!("Failed to resolve the parent dir of the collection!")))?
@@ -156,13 +210,17 @@ pub async fn rename_collection(Path(id): Path<String>, State(state): State<AppSt
     FsCollection::new(&old_path).move_to(&new_path)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-    // Update the label in the database
-    update_collection(&state.db, id, UpdateCollection { label: Some(label), ..Default::default() }).await
-        .map(|_| (StatusCode::OK, msg!("Success")))
-        .map_err(|e| match e {
-            sea_orm::DbErr::RecordNotFound(_) => (StatusCode::NOT_FOUND, msg!("Collection not found")),
-            e => (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())),
-        })
+    // Update the label in the database (reverting disk move on failure)
+    match update_collection(&state.db, &id, UpdateCollection { label: Some(label), ..Default::default() }).await {
+        Ok(_) => Ok((StatusCode::OK, msg!("Success"))),
+        Err(e) => {
+            let _ = FsCollection::new(&new_path).move_to(&old_path);
+            match e {
+                sea_orm::DbErr::RecordNotFound(_) => Err((StatusCode::NOT_FOUND, msg!("Collection not found"))),
+                e => Err((StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string()))),
+            }
+        }
+    }
 }
 
 /// Deletes a collection from the database and moves its children out on disk
@@ -181,15 +239,18 @@ pub async fn rename_collection(Path(id): Path<String>, State(state): State<AppSt
 /// - `500 Internal Server Error`: Database or filesystem error
 pub async fn del_collection(Path(id): Path<String>, State(state): State<AppState>) -> Response {
     // Resolve the path before deleting the DB record
-    let collection_path = get_collection_path(&state.db, id.clone()).await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+    let collection_path = get_collection_path(&state.db, &id).await
+        .map_err(|e| match e {
+            sea_orm::DbErr::RecordNotFound(_) => (StatusCode::NOT_FOUND, msg!("Collection not found")),
+            e => (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())),
+        })?;
 
     // Move children out and remove the directory on disk
     FsCollection::new(&collection_path).delete()
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-    // Delete the record from the database
-    delete_collection(&state.db, id).await
+    // Delete the record from the database and unfile its children
+    delete_collection(&state.db, &id).await
         .map(|_| (StatusCode::OK, msg!("Success")))
         .map_err(|e| match e {
             sea_orm::DbErr::RecordNotFound(_) => (StatusCode::NOT_FOUND, msg!("Collection not found")),
@@ -209,7 +270,7 @@ pub async fn del_collection(Path(id): Path<String>, State(state): State<AppState
 /// - `200 OK`: JSON array of assets in the collection
 /// - `500 Internal Server Error`: Database error
 pub async fn assets_in_collection(Path(id): Path<String>, State(state): State<AppState>) -> Result<Json<Vec<Asset>>, (StatusCode, Json<Value>)> {
-    get_assets_by_parent(&state.db, Some(id)).await
+    get_assets_by_parent(&state.db, Some(&id)).await
         .map(Json)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))
 }

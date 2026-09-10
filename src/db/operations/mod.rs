@@ -24,7 +24,14 @@ macro_rules! patch_fields {
     // Base case: do nothing when the list is empty
     ($model:expr, $update:expr, {}) => {};
 
-    // Handle a standard field
+    // Single field without trailing comma
+    ($model:expr, $update:expr, { $field:ident }) => {
+        if let Some(v) = $update.$field {
+            $model.$field = sea_orm::ActiveValue::Set(v.into());
+        }
+    };
+
+    // Handle a standard field with comma
     ($model:expr, $update:expr, { $field:ident, $($tail:tt)* }) => {
         if let Some(v) = $update.$field {
             $model.$field = sea_orm::ActiveValue::Set(v.into());

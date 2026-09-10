@@ -18,16 +18,17 @@ impl Collection {
         }
     }
 
-    /// Creates a new collection directory at the storage root.
+    /// Creates a new collection directory.
     ///
     /// # Arguments
-    /// * `collection_name` - The name of the new collection
+    /// * `collection_path` - The path of the new collection relative to storage root
     ///
     /// # Returns
-    /// Ok if the collection was successfully created at `$STORAGE_ROOT/collection_name`
-    pub fn create(collection_name: &str) -> Result<(), Error> {
-        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
-        fs::create_dir_all(storage_root.join(collection_name))?;
+    /// Ok if the collection was successfully created
+    pub fn create<P: AsRef<Path>>(collection_path: P) -> Result<(), Error> {
+        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").map_err(|e| Error::new(std::io::ErrorKind::NotFound, e))?);
+        let full_path = collection_path.as_ref().prefix(&storage_root);
+        fs::create_dir_all(&full_path)?;
         Ok(())
     }
 
@@ -36,7 +37,7 @@ impl Collection {
     /// # Returns
     /// Ok if the collection was deleted successfully and its children moved, or an error if deletion failed.
     pub fn delete(self) -> Result<(), Error> {
-        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
+        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").map_err(|e| Error::new(std::io::ErrorKind::NotFound, e))?);
         let full_collection_path = self.collection_path.prefix(&storage_root);
         let unfiled_path = storage_root.join("unfiled");
 
@@ -105,7 +106,7 @@ impl Collection {
     ///     .unwrap();
     /// ```
     pub fn move_to(&self, destination_path: &Path) -> Result<(), Error> {
-        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
+        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").map_err(|e| Error::new(std::io::ErrorKind::NotFound, e))?);
         let src_path = self.collection_path.prefix(&storage_root);
         let dest_path = destination_path.prefix(&storage_root);
 

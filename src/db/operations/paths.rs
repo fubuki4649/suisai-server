@@ -11,12 +11,12 @@ use std::path::PathBuf;
 ///
 /// # Returns
 /// The path of the collection; Returns a `DbErr::Custom` if a cyclical path is detected
-pub async fn get_collection_path(db: &DatabaseConnection, collection_id: String) -> Result<PathBuf, DbErr> {
+pub async fn get_collection_path(db: &DatabaseConnection, collection_id: &str) -> Result<PathBuf, DbErr> {
 
     // Collect the chain of collection labels from the current collection up to root to build a
     // path by climbing an inverse tree
     let mut segments: Vec<String> = Vec::new();
-    let mut current_id: Option<String> = Some(collection_id);
+    let mut current_id: Option<String> = Some(collection_id.to_string());
     let mut seen: HashSet<String> = HashSet::new();
 
     while let Some(cid) = current_id {
@@ -26,7 +26,7 @@ pub async fn get_collection_path(db: &DatabaseConnection, collection_id: String)
         }
 
         // Fetch the label and parent_id for this collection
-        let (label, parent_id): (String, Option<String>) = collections::Entity::find_by_id(cid.clone())
+        let (label, parent_id): (String, Option<String>) = collections::Entity::find_by_id(&cid)
             .select_only()
             .column(collections::Column::Label)
             .column(collections::Column::ParentId)
@@ -57,10 +57,11 @@ pub async fn get_collection_path(db: &DatabaseConnection, collection_id: String)
 ///
 /// # Returns
 /// The path of the asset
-pub async fn get_asset_path(db: &DatabaseConnection, asset_id: String) -> Result<PathBuf, DbErr> {
+#[allow(dead_code)]
+pub async fn get_asset_path(db: &DatabaseConnection, asset_id: &str) -> Result<PathBuf, DbErr> {
 
     // Get the asset file name and parent collection (and confirm the asset exists)
-    let (file_name, parent_id): (String, Option<String>) = assets::Entity::find_by_id(asset_id.clone())
+    let (file_name, parent_id): (String, Option<String>) = assets::Entity::find_by_id(asset_id)
         .select_only()
         .column(assets::Column::FileName)
         .column(assets::Column::ParentId)
@@ -71,7 +72,7 @@ pub async fn get_asset_path(db: &DatabaseConnection, asset_id: String) -> Result
 
     // Build the path
     let mut path = match parent_id {
-        Some(collection_id) => get_collection_path(db, collection_id).await?,
+        Some(collection_id) => get_collection_path(db, &collection_id).await?,
         None => PathBuf::from("unfiled"),
     };
 

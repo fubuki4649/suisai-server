@@ -28,12 +28,20 @@ impl JsonMap for Json<Value> {
     /// # Errors
     /// Returns an `anyhow::Error` if the key does not exist or if deserialization fails.
     fn get_value<T>(&self, key: &str) -> anyhow::Result<T> where T: DeserializeOwned {
-
         let camel_key = key.to_camel_case();
         
-        if let Some(value) = self.get(&camel_key) {
+        let found_val = self.get(&camel_key).or_else(|| self.get(key));
+
+        if let Some(value) = found_val {
             let result: T = serde_json::from_value(value.clone())?;
-            return Ok(result)
+            return Ok(result);
+        }
+
+        // If the key is omitted, try deserializing Value::Null.
+        // For Option<U>, this will succeed and return Ok(None).
+        // For non-optional types (e.g. String), this will fail and return the missing key error.
+        if let Ok(result) = serde_json::from_value::<T>(Value::Null) {
+            return Ok(result);
         }
 
         Err(anyhow::anyhow!("Key \"{camel_key}\" not found in JSON"))

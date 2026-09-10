@@ -33,26 +33,41 @@ pub async fn del_asset(State(state): State<AppState>, input: Json<Value>) -> Res
     let asset_ids = input.get_value::<Vec<String>>("asset_ids")
         .map_err(|e| (StatusCode::BAD_REQUEST, msg!(e.to_string())))?;
 
-    let deleted = delete_asset(&state.db, asset_ids).await
+    if asset_ids.is_empty() {
+        return Ok((StatusCode::OK, msg!("Success")));
+    }
+
+    let assets = db_get_assets(&state.db, &asset_ids).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
-    // Delete each asset and its associated files from disk
-    for asset in deleted {
+    let mut collection_paths: std::collections::HashMap<String, PathBuf> = std::collections::HashMap::new();
 
-        // Get the full path to the asset, so we can delete it from the disk
-        // We can't use the DB operation anymore because it's already removed from the database at this point
-        let mut asset_path = match asset.parent_id {
-            Some(parent_id) => get_collection_path(&state.db, parent_id).await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?,
-            None => PathBuf::from("/unfiled"),
+    // Delete each asset and its associated files from disk
+    for asset in &assets {
+        let parent_path = match &asset.parent_id {
+            Some(parent_id) => {
+                if let Some(cached) = collection_paths.get(parent_id) {
+                    cached.clone()
+                } else {
+                    let path = get_collection_path(&state.db, parent_id).await
+                        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
+                    collection_paths.insert(parent_id.clone(), path.clone());
+                    path
+                }
+            }
+            None => PathBuf::from("unfiled"),
         };
-        asset_path.push(&asset.file_name);
+
+        let asset_path = parent_path.join(&asset.file_name);
 
         match asset.thumbnail_path {
             Some(ref thumb) => FsAsset::new(&asset_path, Path::new(thumb)).delete(),
             None => FsAsset::new_without_thumb(&asset_path).delete(),
         }.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
     }
+
+    delete_asset(&state.db, asset_ids).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, msg!(e.to_string())))?;
 
     Ok((StatusCode::OK, msg!("Success")))
 }

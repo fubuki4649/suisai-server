@@ -1,7 +1,8 @@
-use crate::db::entities::collections;
+use crate::db::entities::{assets, collections};
 use crate::models::collection::{Collection, NewCollection, UpdateCollection};
 use crate::patch_fields;
-use sea_orm::{entity::{EntityTrait, ActiveModelTrait, ColumnTrait}, DatabaseConnection, DbErr, QueryFilter, Set};
+use sea_orm::sea_query::Expr;
+use sea_orm::{entity::{EntityTrait, ActiveModelTrait, ColumnTrait}, DatabaseConnection, DbErr, QueryFilter, QueryOrder, Set};
 
 /// Creates a new collection in the database
 ///
@@ -25,7 +26,7 @@ pub async fn new_collection(db: &DatabaseConnection, collection: NewCollection) 
     Ok(id)
 }
 
-/// Deletes the specified collection from the database
+/// Deletes the specified collection from the database, unfiling child assets and collections
 ///
 /// # Arguments
 /// * `db` - Database connection
@@ -33,12 +34,25 @@ pub async fn new_collection(db: &DatabaseConnection, collection: NewCollection) 
 ///
 /// # Returns
 /// The deleted `Collection` if found, or an error if the collection doesn't exist
-pub async fn delete_collection(db: &DatabaseConnection, collection_id: String) -> Result<Collection, DbErr> {
+pub async fn delete_collection(db: &DatabaseConnection, collection_id: &str) -> Result<Collection, DbErr> {
     // Fetch
-    let collection = collections::Entity::find_by_id(collection_id.clone())
+    let collection = collections::Entity::find_by_id(collection_id)
         .one(db)
         .await?
         .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {collection_id} not found")))?;
+
+    // Unfile child assets and child collections so they are not orphaned
+    assets::Entity::update_many()
+        .filter(assets::Column::ParentId.eq(collection_id))
+        .col_expr(assets::Column::ParentId, Expr::value(Option::<String>::None))
+        .exec(db)
+        .await?;
+
+    collections::Entity::update_many()
+        .filter(collections::Column::ParentId.eq(collection_id))
+        .col_expr(collections::Column::ParentId, Expr::value(Option::<String>::None))
+        .exec(db)
+        .await?;
 
     // Delete
     collections::Entity::delete_by_id(collection_id).exec(db).await?;
@@ -55,8 +69,8 @@ pub async fn delete_collection(db: &DatabaseConnection, collection_id: String) -
 ///
 /// # Returns
 /// The updated `Collection`, or an error if the collection doesn't exist
-pub async fn update_collection(db: &DatabaseConnection, collection_id: String, update: UpdateCollection) -> Result<Collection, DbErr> {
-    let existing = collections::Entity::find_by_id(collection_id.clone())
+pub async fn update_collection(db: &DatabaseConnection, collection_id: &str, update: UpdateCollection) -> Result<Collection, DbErr> {
+    let existing = collections::Entity::find_by_id(collection_id)
         .one(db)
         .await?
         .ok_or_else(|| DbErr::RecordNotFound(format!("Collection {collection_id} not found")))?;
@@ -86,6 +100,7 @@ pub async fn get_collections(db: &DatabaseConnection, collection_ids: &[String])
 
     collections::Entity::find()
         .filter(collections::Column::Id.is_in(collection_ids.to_vec()))
+        .order_by_asc(collections::Column::Label)
         .into_partial_model::<Collection>()
         .all(db)
         .await
@@ -100,6 +115,7 @@ pub async fn get_collections(db: &DatabaseConnection, collection_ids: &[String])
 /// A list of all collections, or an error
 pub async fn get_all_collections(db: &DatabaseConnection) -> Result<Vec<Collection>, DbErr> {
     collections::Entity::find()
+        .order_by_asc(collections::Column::Label)
         .into_partial_model::<Collection>()
         .all(db)
         .await

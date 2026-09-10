@@ -13,14 +13,28 @@ pub async fn hash_and_transfer(src: &Path, dest: &Path, no_preserve: bool) -> Re
     let mut dest_file = File::create(dest).await?;
     let mut hasher = Xxh3::new();
     let mut total_bytes = 0u64;
-    let mut buf = vec![0u8; 1024 * 1024]; // 1MB chunks
+    let mut buf = vec![0u8; 128 * 1024]; // 128KB chunks
 
     loop {
-        let n = src_file.read(&mut buf).await?;
-        if n == 0 { break; }
+        let n = match src_file.read(&mut buf).await {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(e) => {
+                let _ = remove_file(dest).await;
+                return Err(e);
+            }
+        };
         hasher.update(&buf[..n]);
-        dest_file.write_all(&buf[..n]).await?;
+        if let Err(e) = dest_file.write_all(&buf[..n]).await {
+            let _ = remove_file(dest).await;
+            return Err(e);
+        }
         total_bytes += n as u64;
+    }
+
+    if let Err(e) = dest_file.flush().await {
+        let _ = remove_file(dest).await;
+        return Err(e);
     }
 
     if no_preserve {

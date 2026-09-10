@@ -17,8 +17,8 @@ use tokio::task::JoinSet;
 pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
 
     // Set up destination directories
-    let storage_root = PathBuf::from(env::var("STORAGE_ROOT").unwrap());
-    let thumbnail_root = PathBuf::from(env::var("THUMBNAIL_ROOT").unwrap());
+    let storage_root = PathBuf::from(env::var("STORAGE_ROOT").expect("$STORAGE_ROOT not set"));
+    let thumbnail_root = PathBuf::from(env::var("THUMBNAIL_ROOT").expect("$THUMBNAIL_ROOT not set"));
     let dest_dir = storage_root.join("unfiled");
     create_dir_all(&dest_dir).await.unwrap_or_else(|_| panic!("Failed to create directory {}", dest_dir.display()));
 
@@ -56,12 +56,12 @@ pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
 
                 let Some(path) = path else { break };
 
-                let filename = path.file_name().unwrap_or_default().to_string_lossy();
-                let asset_new_path = dest_dir.join(filename.as_ref());
+                let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let temp_filename = format!(".ingest_{}_{}", uuid::Uuid::now_v7(), filename);
+                let temp_path = dest_dir.join(&temp_filename);
 
-                // Copy and read the hash in the same pass (we can delete it later if we don't need it)
-                // Much better for ingesting straight from SD cards/slow network sources
-                let (hash, bytes_transferred) = match hash_and_transfer(&path, &asset_new_path, no_preserve).await {
+                // Copy and read the hash in the same pass into a temporary file
+                let (hash, bytes_transferred) = match hash_and_transfer(&path, &temp_path, no_preserve).await {
                     Ok(result) => result,
                     Err(e) => {
                         println!("Error transferring {filename}: {e}");
@@ -71,44 +71,76 @@ pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
 
                 println!("{} {filename} to {} ({bytes_transferred} bytes)", if no_preserve { "Moved" } else { "Copied" }, dest_dir.display());
 
-                // Check for duplicate after transfer — if duplicate, discard the transferred file
+                // Check for duplicate after transfer — if duplicate, discard only the temporary staged file
                 match check_hash(&db, &hash).await {
-                    Err(e) => panic!("Database Error: {e}"),
+                    Err(e) => {
+                        let _ = remove_file(&temp_path).await;
+                        panic!("Database Error: {e}");
+                    }
                     Ok(Some(_)) => {
                         println!("Hash {hash} already exists in database, discarding");
-                        if let Err(e) = remove_file(&asset_new_path).await {
-                            println!("Warning: failed to remove duplicate file {}: {e}", asset_new_path.display());
+                        if let Err(e) = remove_file(&temp_path).await {
+                            println!("Warning: failed to remove duplicate file {}: {e}", temp_path.display());
                         }
                         continue;
-                    },
+                    }
                     Ok(None) => (),
                 }
 
-                // Generate thumbnail and build DB entry
+                // Determine final collision-free path in dest_dir
+                let final_path = {
+                    let direct = dest_dir.join(&filename);
+                    if !direct.exists() {
+                        direct
+                    } else {
+                        let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                        let ext = path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+                        let mut counter = 1;
+                        loop {
+                            let candidate = dest_dir.join(format!("{stem}_{counter}{ext}"));
+                            if !candidate.exists() {
+                                break candidate;
+                            }
+                            counter += 1;
+                        }
+                    }
+                };
+
+                let final_filename = final_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                if let Err(e) = tokio::fs::rename(&temp_path, &final_path).await {
+                    println!("Error finalizing {filename} to {}: {e}", final_path.display());
+                    let _ = remove_file(&temp_path).await;
+                    continue;
+                }
+
+                // Generate thumbnail and build DB entry using already computed hash and size
+                let size_on_disk = bytes_transferred.div_ceil(1024) as i64;
                 let thumbnail_root = thumbnail_root.clone();
+                let final_path_clone = final_path.clone();
+                let final_filename_clone = final_filename.clone();
                 let new_db_asset = tokio::task::spawn_blocking(move || {
-                    // Build DB entry
-                    let mut new_db_asset = asset_new_path.to_db_entry();
+                    let mut new_db_asset = final_path_clone.to_db_entry(hash, size_on_disk);
+                    new_db_asset.file_name = final_filename_clone;
 
                     // Generate Thumbnail
                     let date = new_db_asset.photo_date;
-                    let thumbnail_filename = format!("{}.jpeg", asset_new_path.file_stem().unwrap().to_string_lossy());
+                    let thumbnail_filename = format!("{}.jpeg", final_path_clone.file_stem().unwrap_or_default().to_string_lossy());
                     let thumbnail_path_rel = PathBuf::from(format!("{}{:02}", date.year(), date.month())).join(&thumbnail_filename);
                     let thumbnail_path_abs = thumbnail_root.join(&thumbnail_path_rel);
 
-                    match extract_thumbnail_full(&asset_new_path, &thumbnail_path_abs) {
+                    match extract_thumbnail_full(&final_path_clone, &thumbnail_path_abs) {
                         Ok(()) => {
                             println!("Thumbnail created at {}", thumbnail_path_abs.display());
                             new_db_asset.thumbnail_path = Some(thumbnail_path_rel.to_string_lossy().to_string());
-                        },
-                        Err(e) => println!("Error creating thumbnail for {}: {e}", asset_new_path.display()),
+                        }
+                        Err(e) => println!("Error creating thumbnail for {}: {e}", final_path_clone.display()),
                     };
 
                     new_db_asset
                 }).await.unwrap();
 
                 // Insert into DB
-                println!("Adding {filename} to database");
+                println!("Adding {final_filename} to database");
                 match new_asset(&db, new_db_asset).await {
                     Err(e) => println!("Error: {e}"),
                     Ok(id) => println!("Created asset with database ID {id}")

@@ -20,7 +20,7 @@ pub enum Relation {
         from = "Column::ParentId",
         to = "Column::Id",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "SetNull"
     )]
     SelfRef,
 }

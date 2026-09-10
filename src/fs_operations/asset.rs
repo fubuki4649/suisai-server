@@ -35,22 +35,31 @@ impl Asset {
     /// # Returns
     /// Ok if all files were moved successfully, or an error if something failed.
     pub fn move_to(&self, dest_path: &Path) -> Result<(), Error> {
-        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
+        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").map_err(|e| Error::new(ErrorKind::NotFound, e))?);
         let full_asset_path = self.asset_path.prefix(&storage_root);
         let full_dest_path = dest_path.prefix(&storage_root);
 
-        // Extract the base name (without extension) from the asset filename
-        let base_name = full_asset_path
-            .file_prefix()
-            .unwrap_or(self.asset_path.file_name().unwrap());
+        fs::create_dir_all(&full_dest_path)?;
 
-        // Find all files in the collection directory that match the pattern <base_name>* and move them
+        let base_stem = full_asset_path.file_stem()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Asset path has no file stem"))?
+            .to_os_string();
+        let file_name = full_asset_path.file_name()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Asset path has no file name"))?
+            .to_string_lossy()
+            .to_string();
+        let sidecar_prefix = format!("{}.", file_name);
+
+        // Find all files in the collection directory that match the stem or filename.ext sidecars and move them
         match full_asset_path.parent().filter(|p| p.exists()) {
             Some(parent) => {
                 fs::read_dir(parent)?
                     .flatten()
                     .filter(|entry| entry.file_type().is_ok_and(|ft| ft.is_file()))
-                    .filter(|entry| entry.path().file_prefix().is_some_and(|prefix| prefix == base_name))
+                    .filter(|entry| {
+                        entry.path().file_stem().is_some_and(|s| s == base_stem)
+                            || entry.file_name().to_string_lossy().starts_with(&sidecar_prefix)
+                    })
                     .try_for_each(|entry| {
                         fs::rename(
                             entry.path(),
@@ -64,7 +73,6 @@ impl Asset {
                 Err(Error::new(ErrorKind::NotFound, format!("Parent directory of {} does not exist!", full_asset_path.to_string_lossy())))
             }
         }
-
     }
 
     /// Deletes the asset, its thumbnail (if present), and associated files from the filesystem,
@@ -73,12 +81,12 @@ impl Asset {
     /// # Returns
     /// Ok if all files were deleted successfully, or an error if deletion failed.
     pub fn delete(self) -> Result<(), Error> {
-        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").unwrap());
+        let storage_root = PathBuf::from(std::env::var("STORAGE_ROOT").map_err(|e| Error::new(ErrorKind::NotFound, e))?);
         let full_asset_path = self.asset_path.prefix(&storage_root);
 
         // Delete thumbnail from hard drive if thumbnail_path is set
         if let Some(thumb_path) = self.thumb_path {
-            let thumbnail_root = PathBuf::from(std::env::var("THUMBNAIL_ROOT").unwrap());
+            let thumbnail_root = PathBuf::from(std::env::var("THUMBNAIL_ROOT").map_err(|e| Error::new(ErrorKind::NotFound, e))?);
             let mut full_thumb_path = thumb_path.prefix(&thumbnail_root);
 
             let _ = fs::remove_file(&full_thumb_path);
@@ -94,17 +102,20 @@ impl Asset {
         }
 
         // Delete the asset itself and also other associated files (e.g. exports, metadata, etc.)
-        // Basically, anything with the same file stem without the extension.
-        let base_name = full_asset_path
-            .file_prefix()
-            .unwrap_or_else(|| full_asset_path.file_name().unwrap());
+        if let Some(base_stem) = full_asset_path.file_stem().map(|s| s.to_os_string()) {
+            let file_name = full_asset_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+            let sidecar_prefix = format!("{}.", file_name);
 
-        if let Some(parent) = full_asset_path.parent().filter(|p| p.exists()) {
-            fs::read_dir(parent)?
-                .flatten()
-                .filter(|entry| entry.file_type().is_ok_and(|ft| ft.is_file()))
-                .filter(|entry| entry.path().file_prefix().is_some_and(|prefix| prefix == base_name))
-                .try_for_each(|entry| fs::remove_file(entry.path()))?;
+            if let Some(parent) = full_asset_path.parent().filter(|p| p.exists()) {
+                fs::read_dir(parent)?
+                    .flatten()
+                    .filter(|entry| entry.file_type().is_ok_and(|ft| ft.is_file()))
+                    .filter(|entry| {
+                        entry.path().file_stem().is_some_and(|s| s == base_stem)
+                            || entry.file_name().to_string_lossy().starts_with(&sidecar_prefix)
+                    })
+                    .try_for_each(|entry| fs::remove_file(entry.path()))?;
+            }
         }
 
         Ok(())

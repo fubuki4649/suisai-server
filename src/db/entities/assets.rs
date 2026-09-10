@@ -36,7 +36,7 @@ pub enum Relation {
         from = "Column::ParentId",
         to = "super::collections::Column::Id",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "SetNull"
     )]
     Collections,
 }

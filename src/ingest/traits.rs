@@ -9,9 +9,11 @@ use xxhash_rust::xxh3::xxh3_128;
 /// and convert it into a database-compatible format.
 pub trait SuisaiAsset {
     /// Gets the `xxh3_128` content hash of the asset file
+    #[allow(dead_code)]
     fn get_hash(&self) -> String;
 
     /// On-disk size of the asset in KB
+    #[allow(dead_code)]
     fn get_size_on_disk(&self) -> i64;
 
     /// The date/time the photo was taken, in UTC
@@ -48,7 +50,7 @@ pub trait SuisaiAsset {
     fn get_aperture(&self, info: &ImageInfo) -> f32;
 
     /// Returns a `crate::models::asset::NewDbAsset`.
-    fn to_db_entry(&self) -> NewDbAsset;
+    fn to_db_entry(&self, hash: String, size_on_disk: i64) -> NewDbAsset;
 }
 
 impl SuisaiAsset for PathBuf {
@@ -137,15 +139,15 @@ impl SuisaiAsset for PathBuf {
             .unwrap_or(0.0)
     }
 
-    fn to_db_entry(&self) -> NewDbAsset {
+    fn to_db_entry(&self, hash: String, size_on_disk: i64) -> NewDbAsset {
         let info = image_info(self).unwrap_or_default();
         let res = self.get_resolution(&info);
         NewDbAsset {
             parent_id: None,
             thumbnail_path: None,
-            hash: self.get_hash(),
+            hash,
             file_name: self.file_name().unwrap_or_default().to_string_lossy().to_string(),
-            size_on_disk: self.get_size_on_disk(),
+            size_on_disk,
             photo_date: self.get_photo_date(&info),
             photo_timezone: self.get_photo_timezone(&info),
             resolution_width: res[0],

@@ -56,9 +56,7 @@ pub async fn delete_asset(db: &DatabaseConnection, asset_ids: Vec<String>) -> Re
     // Fetch
     let assets = assets::Entity::find()
         .filter(assets::Column::Id.is_in(asset_ids.clone()))
-        .order_by_asc(assets::Column::PhotoDate)
-        .order_by_asc(assets::Column::ShutterCount)
-        .order_by_asc(assets::Column::FileName)
+        .into_partial_model::<Asset>()
         .all(db)
         .await?;
 
@@ -68,7 +66,7 @@ pub async fn delete_asset(db: &DatabaseConnection, asset_ids: Vec<String>) -> Re
         .exec(db)
         .await?;
 
-    Ok(assets.into_iter().map(Into::into).collect())
+    Ok(assets)
 }
 
 /// Updates an existing asset in the database using partial update (only set fields are changed)
@@ -80,8 +78,8 @@ pub async fn delete_asset(db: &DatabaseConnection, asset_ids: Vec<String>) -> Re
 ///
 /// # Returns
 /// The updated `Asset`, or an error if the asset doesn't exist
-pub async fn update_asset(db: &DatabaseConnection, asset_id: String, update: UpdateAsset) -> Result<Asset, DbErr> {
-    let existing = assets::Entity::find_by_id(asset_id.clone())
+pub async fn update_asset(db: &DatabaseConnection, asset_id: &str, update: UpdateAsset) -> Result<Asset, DbErr> {
+    let existing = assets::Entity::find_by_id(asset_id)
         .one(db)
         .await?
         .ok_or_else(|| DbErr::RecordNotFound(format!("Asset {asset_id} not found")))?;
@@ -162,7 +160,7 @@ pub async fn get_assets(db: &DatabaseConnection, asset_ids: &[String]) -> Result
 ///
 /// # Returns
 /// A list of matching assets, or an error
-pub async fn get_assets_by_parent(db: &DatabaseConnection, parent_id: Option<String>) -> Result<Vec<Asset>, DbErr> {
+pub async fn get_assets_by_parent(db: &DatabaseConnection, parent_id: Option<&str>) -> Result<Vec<Asset>, DbErr> {
     let query = assets::Entity::find();
     let query = match parent_id {
         Some(id) => query.filter(assets::Column::ParentId.eq(id)),
