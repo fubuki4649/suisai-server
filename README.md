@@ -13,7 +13,7 @@ Backend server for suisai
 
 Make a copy of `example.env` as `.env`, and fill in the fields:
 
-```bash
+```shell
 cp example.env .env
 ```
 
@@ -27,16 +27,25 @@ DATABASE_URL="sqlite://suisai.db?mode=rwc"
 
 The database file and tables (`collections` & `assets`) are automatically created by SeaORM on initial server startup.
 
+## Installation
+
+Set up `.env` first. Then, modify `User=` and `Group=` in `suisai.service` as necessary. Then
+
+```shell
+make install
+sudo systemctl enable --now suisai
+```
+
 ## Development
 
 Start the web server (powered by Axum & SeaORM):
 
-```bash
+```shell
 cargo run -- start-server
 ```
 
 Ingest raw photo files from a directory:
 
-```bash
+```shell
 cargo run -- ingest /path/to/raws
 ```

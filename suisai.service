@@ -1,0 +1,15 @@
+[Unit]
+Description=Suisai Server
+After=network.target
+
+[Service]
+Type=simple
+User=suisai
+Group=suisai
+EnvironmentFile=/etc/suisai/suisai.env
+ExecStart=/usr/local/bin/suisai start-server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

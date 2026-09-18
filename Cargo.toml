@@ -1,23 +1,23 @@
 [package]
-name = "suisai-server"
+name = "suisai"
 version = "0.2.0"
 edition = "2024"
 
 [dependencies]
 dotenvy = "0.15.7"
 
-sea-orm = { version = "2.0.2", default-features = false, features = [
+sea-orm = { version = "2.0.3", default-features = false, features = [
     "sqlx-sqlite",
     "runtime-tokio",
     "macros",
     "with-chrono"
 ] }
-uuid = { version = "1.26.0", features = ["v7"] }
+uuid = { version = "1.26.1", features = ["v7"] }
 
 chrono = { version = "0.4.45", default-features = false, features = ["std", "serde"] }
 anyhow = "1.0.104"
 serde = { version = "1.0.229", features = ["derive"] }
-clap = { version = "4.6.6", default-features = false, features = [
+clap = { version = "4.6.7", default-features = false, features = [
     "std",
     "derive",
     "help",
@@ -41,7 +41,7 @@ tokio = { version = "1.53.1", features = [
     "io-util",
     "sync"
 ] }
-tower-http = { version = "0.7.0", features = ["fs", "cors"] }
+tower-http = { version = "0.7.1", features = ["fs", "cors"] }
 tower = { version = "0.5.3", features = ["util"] }
 exiftool-rs = "0.8.0"
 rawlib = "0.7.1"
