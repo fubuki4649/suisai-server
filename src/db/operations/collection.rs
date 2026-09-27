@@ -120,3 +120,25 @@ pub async fn get_all_collections(db: &DatabaseConnection) -> Result<Vec<Collecti
         .all(db)
         .await
 }
+
+/// Finds a collection by its label and parent ID
+///
+/// # Arguments
+/// * `db` - Database connection
+/// * `label` - The label to search for
+/// * `parent_id` - Parent collection ID, or `None` to search root-level collections
+///
+/// # Returns
+/// The matching collection if found, or `None`
+pub async fn find_collection_by_label(db: &DatabaseConnection, label: &str, parent_id: Option<&str>) -> Result<Option<Collection>, DbErr> {
+    let query = collections::Entity::find()
+        .filter(collections::Column::Label.eq(label));
+    let query = match parent_id {
+        Some(id) => query.filter(collections::Column::ParentId.eq(id)),
+        None => query.filter(collections::Column::ParentId.is_null()),
+    };
+    query
+        .into_partial_model::<Collection>()
+        .one(db)
+        .await
+}

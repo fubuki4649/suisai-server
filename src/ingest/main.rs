@@ -1,4 +1,6 @@
 use crate::db::operations::asset::{check_hash, new_asset};
+use crate::ingest::collection_path_resolver::CollectionPathResolver;
+use crate::ingest::helpers::create_ingest_root::create_ingest_root;
 use crate::ingest::helpers::extract_thumbnail::extract_thumbnail_full;
 use crate::ingest::helpers::hash_and_transfer::hash_and_transfer;
 use crate::ingest::helpers::search_path::search_path_for_assets;
@@ -7,23 +9,38 @@ use chrono::Datelike;
 use sea_orm::DatabaseConnection;
 use std::env;
 use std::num::NonZero;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::{create_dir_all, remove_file};
 use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
 /// Ingests photos from a directory as a suisai asset, including database storage and thumbnail generation
-pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
+pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool, preserve_structure: bool) {
 
     // Set up destination directories
     let storage_root = PathBuf::from(env::var("STORAGE_ROOT").expect("$STORAGE_ROOT not set"));
     let thumbnail_root = PathBuf::from(env::var("THUMBNAIL_ROOT").expect("$THUMBNAIL_ROOT not set"));
-    let dest_dir = storage_root.join("unfiled");
-    create_dir_all(&dest_dir).await.unwrap_or_else(|_| panic!("Failed to create directory {}", dest_dir.display()));
+
+    // When preserving structure, create a root ingest collection and resolver; otherwise use unfiled/
+    let (collection_resolver, base_dest_dir) = if preserve_structure {
+        let (id, label) = create_ingest_root(db).await;
+        let dest = storage_root.join(&label);
+        let resolver = Arc::new(CollectionPathResolver::new(
+            db.clone(),
+            id,
+            label,
+            storage_root.clone(),
+        ));
+        (Some(resolver), dest)
+    } else {
+        let dest = storage_root.join("unfiled");
+        create_dir_all(&dest).await.unwrap_or_else(|_| panic!("Failed to create directory {}", dest.display()));
+        (None, dest)
+    };
 
     // Set up send/receive channels for multithreading
-    let (tx, rx) = tokio::sync::mpsc::channel::<PathBuf>(100);
+    let (tx, rx) = tokio::sync::mpsc::channel::<(PathBuf, PathBuf)>(100);
     let shared_rx = Arc::new(Mutex::new(rx));
 
     // Launch producer to probe for files to ingest
@@ -44,19 +61,33 @@ pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
     for _ in 0..available_threads {
         let rx = shared_rx.clone();
         let db = db.clone();
-        let dest_dir = dest_dir.clone();
+        let base_dest_dir = base_dest_dir.clone();
         let thumbnail_root = thumbnail_root.clone();
+        let collection_resolver = collection_resolver.clone();
 
         workers.spawn(async move {
             loop {
-                let path = {
+                let (path, rel_path) = {
                     let mut guard = rx.lock().await;
-                    guard.recv().await
+                    match guard.recv().await {
+                        Some(item) => item,
+                        None => break,
+                    }
                 };
 
-                let Some(path) = path else { break };
-
                 let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+
+                // Determine dest_dir and parent_id based on mode
+                let (dest_dir, parent_id) = if let Some(ref resolver) = collection_resolver {
+                    let rel_dir = rel_path.parent().unwrap_or(Path::new(""));
+                    let resolved = resolver.resolve(rel_dir).await;
+                    (resolved.dest_dir, Some(resolved.collection_id))
+                } else {
+                    (base_dest_dir.clone(), None)
+                };
+
+                create_dir_all(&dest_dir).await.ok();
+
                 let temp_filename = format!(".ingest_{}_{}", uuid::Uuid::now_v7(), filename);
                 let temp_path = dest_dir.join(&temp_filename);
 
@@ -118,9 +149,11 @@ pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool) {
                 let thumbnail_root = thumbnail_root.clone();
                 let final_path_clone = final_path.clone();
                 let final_filename_clone = final_filename.clone();
+                let parent_id_clone = parent_id.clone();
                 let new_db_asset = tokio::task::spawn_blocking(move || {
                     let mut new_db_asset = final_path_clone.to_db_entry(hash, size_on_disk);
                     new_db_asset.file_name = final_filename_clone;
+                    new_db_asset.parent_id = parent_id_clone;
 
                     // Generate Thumbnail
                     let date = new_db_asset.photo_date;
