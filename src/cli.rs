@@ -43,10 +43,19 @@ pub async fn run_cli() {
     let cli = Cli::parse();
 
     // Run directory preflight checks (creates storage dirs & database parent dirs)
-    check_directories().unwrap();
+    if let Err(e) = check_directories() {
+        eprintln!("Error: Directory preflight check failed: {e}");
+        std::process::exit(1);
+    }
 
     // Initialize DB
-    let db = check_database().await.unwrap();
+    let db = match check_database().await {
+        Ok(db) => db,
+        Err(e) => {
+            eprintln!("Error: Database initialization failed: {e}");
+            std::process::exit(1);
+        }
+    };
 
     // Initialize global state
     let state = AppState { db };

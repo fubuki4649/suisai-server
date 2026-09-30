@@ -42,14 +42,23 @@ pub async fn start_webserver(state: AppState) {
     let addr = format!("0.0.0.0:{}", port);
 
     // Bind TCP listener
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .unwrap_or_else(|_| panic!("Failed to bind to address {}", addr));
+    let listener = match tokio::net::TcpListener::bind(&addr).await {
+        Ok(listener) => listener,
+        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+            eprintln!("Error: Failed to bind to {}: Address already in use. Another instance of suisai may already be running.", addr);
+            std::process::exit(1);
+        }
+        Err(e) => {
+            eprintln!("Error: Failed to bind to address {}: {}", addr, e);
+            std::process::exit(1);
+        }
+    };
 
     println!("Server running on http://{}", addr);
 
     // Start serving requests
-    axum::serve(listener, app)
-        .await
-        .expect("Failed to launch server");
+    if let Err(e) = axum::serve(listener, app).await {
+        eprintln!("Error: Server terminated unexpectedly: {}", e);
+        std::process::exit(1);
+    }
 }
