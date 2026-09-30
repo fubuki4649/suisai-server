@@ -1,10 +1,15 @@
 use crate::endpoints::main::start_webserver;
 use crate::ingest::main::ingest;
+use crate::preflight::{check_database, check_directories};
 use crate::state::AppState;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "suisai", version = "1.0", about = "Backend server for suisai")]
+#[command(
+    name = "suisai",
+    version = concat!(env!("CARGO_PKG_VERSION"), " (build ", env!("SUISAI_COMMIT_HASH"), ")"),
+    about = "Backend server for suisai"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -34,8 +39,17 @@ enum Commands {
     }
 }
 
-pub async fn run_cli(state: AppState) {
+pub async fn run_cli() {
     let cli = Cli::parse();
+
+    // Run directory preflight checks (creates storage dirs & database parent dirs)
+    check_directories().unwrap();
+
+    // Initialize DB
+    let db = check_database().await.unwrap();
+
+    // Initialize global state
+    let state = AppState { db };
 
     match cli.command {
         Commands::StartServer { } => start_webserver(state).await,
