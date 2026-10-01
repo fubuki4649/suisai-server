@@ -5,7 +5,7 @@ use std::fs::{create_dir_all, remove_file, File};
 use std::io::BufWriter;
 use std::path::Path;
 
-const JPEG_QUALITY: u8 = 85;
+const JPEG_QUALITY: u8 = 82;
 
 /// Renders and creates a high-efficiency full-resolution JPEG from a camera RAW image file.
 ///
@@ -46,9 +46,9 @@ pub fn extract_thumbnail<P: AsRef<Path>, Q: AsRef<Path>>(input: P, output: Q) ->
 
     let decode_options = DecodeOptions {
         half_size: false,
-        demosaic_quality: 3,
+        demosaic_quality: 2,
         output_bps: 8,
-        no_auto_bright: false,
+        no_auto_bright: true,
         output_color: 1,
         linear_gamma: false,
         use_camera_wb: true,
@@ -61,7 +61,7 @@ pub fn extract_thumbnail<P: AsRef<Path>, Q: AsRef<Path>>(input: P, output: Q) ->
         .with_context(|| format!("Failed to create JPEG output file {}", output_path.display()))?;
     let writer = BufWriter::new(file);
 
-    let encoder = Encoder::baseline_optimized().quality(JPEG_QUALITY);
+    let encoder = Encoder::fastest().quality(JPEG_QUALITY);
 
     if let Err(e) = encoder.encode_rgb_to_writer(&image.data, image.width as u32, image.height as u32, writer) {
         let _ = remove_file(output_path);
