@@ -1,12 +1,13 @@
 use anyhow::{anyhow, Context, Result};
-use jpeg_encoder::{ColorType, Encoder};
+use mozjpeg_rs::Encoder;
 use rawlib::{extract_image_with_options, DecodeOptions};
-use std::fs::{create_dir_all, remove_file};
+use std::fs::{create_dir_all, remove_file, File};
+use std::io::BufWriter;
 use std::path::Path;
 
-const JPEG_QUALITY: u8 = 88;
+const JPEG_QUALITY: u8 = 85;
 
-/// Renders and creates a full-resolution JPEG from a camera RAW image file.
+/// Renders and creates a high-efficiency full-resolution JPEG from a camera RAW image file.
 ///
 /// # Arguments
 ///
@@ -34,7 +35,7 @@ const JPEG_QUALITY: u8 = 88;
 ///     Path::new("/thumbnails/2024/photo.jpeg")
 /// )?;
 /// ```
-pub fn extract_thumbnail_full<P: AsRef<Path>, Q: AsRef<Path>>(input: P, output: Q) -> Result<()> {
+pub fn extract_thumbnail<P: AsRef<Path>, Q: AsRef<Path>>(input: P, output: Q) -> Result<()> {
     let input_path = input.as_ref();
     let output_path = output.as_ref();
 
@@ -56,12 +57,13 @@ pub fn extract_thumbnail_full<P: AsRef<Path>, Q: AsRef<Path>>(input: P, output: 
     let image = extract_image_with_options(input_path, &decode_options)
         .map_err(|e| anyhow!("Failed to decode RAW from {}: {e}", input_path.display()))?;
 
-    let mut encoder = Encoder::new_file(output_path, JPEG_QUALITY)
+    let file = File::create(output_path)
         .with_context(|| format!("Failed to create JPEG output file {}", output_path.display()))?;
+    let writer = BufWriter::new(file);
 
-    encoder.set_progressive(true);
+    let encoder = Encoder::baseline_optimized().quality(JPEG_QUALITY);
 
-    if let Err(e) = encoder.encode(&image.data, image.width, image.height, ColorType::Rgb) {
+    if let Err(e) = encoder.encode_rgb_to_writer(&image.data, image.width as u32, image.height as u32, writer) {
         let _ = remove_file(output_path);
         return Err(anyhow!("Failed to encode JPEG thumbnail for {}: {e}", output_path.display()));
     }

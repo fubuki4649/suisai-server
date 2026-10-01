@@ -1,7 +1,7 @@
 use crate::db::operations::asset::{check_hash, new_asset};
 use crate::ingest::collection_path_resolver::CollectionPathResolver;
 use crate::ingest::helpers::create_ingest_root::create_ingest_root;
-use crate::ingest::helpers::extract_thumbnail::extract_thumbnail_full;
+use crate::ingest::helpers::extract_thumbnail::extract_thumbnail;
 use crate::ingest::helpers::hash_and_transfer::hash_and_transfer;
 use crate::ingest::helpers::search_path::search_path_for_assets;
 use crate::ingest::traits::SuisaiAsset;
@@ -161,7 +161,7 @@ pub async fn ingest(db: &DatabaseConnection, path: String, no_preserve: bool, pr
                     let thumbnail_path_rel = PathBuf::from(format!("{}{:02}", date.year(), date.month())).join(&thumbnail_filename);
                     let thumbnail_path_abs = thumbnail_root.join(&thumbnail_path_rel);
 
-                    match extract_thumbnail_full(&final_path_clone, &thumbnail_path_abs) {
+                    match extract_thumbnail(&final_path_clone, &thumbnail_path_abs) {
                         Ok(()) => {
                             println!("Thumbnail created at {}", thumbnail_path_abs.display());
                             new_db_asset.thumbnail_path = Some(thumbnail_path_rel.to_string_lossy().to_string());
